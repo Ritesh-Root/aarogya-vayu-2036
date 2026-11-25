@@ -16,7 +16,7 @@ from typing import Optional, Tuple
 
 from pydantic import BaseModel
 
-from app.llm import _gemini, decode_media, generate_json
+from app.llm import _gemini, consume_ai_budget, decode_media, generate_json
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ async def synthesize(text: str) -> Optional[Tuple[bytes, str]]:
         _tts_cache.move_to_end(text)
         return _tts_cache[text], "cache"
     client = _gemini()
-    if not client:
+    if not client or not consume_ai_budget():
         return None
     from google.genai import types
     config = types.GenerateContentConfig(

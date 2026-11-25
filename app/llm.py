@@ -77,6 +77,47 @@ def decode_media(data: str, mime_type: Any, default_mime: str, allowed: set, max
     return raw, mime
 
 
+# ---- Global daily AI budget ----
+# One always-on instance serves every visitor, so a process-wide counter is a real cap on paid model calls.
+# When it is spent the app keeps working on its rule-based paths; speech and vision answer 429.
+AI_DAILY_CALL_BUDGET = int(os.getenv("AI_DAILY_CALL_BUDGET", "1500"))
+_IST = __import__("datetime").timezone(__import__("datetime").timedelta(hours=5, minutes=30))
+_budget_state = {"day": None, "used": 0}
+_budget_lock = __import__("threading").Lock()
+
+
+def _today() -> str:
+    return __import__("datetime").datetime.now(_IST).date().isoformat()
+
+
+def _roll_day() -> None:
+    day = _today()
+    if _budget_state["day"] != day:
+        _budget_state["day"], _budget_state["used"] = day, 0
+
+
+def ai_budget_remaining() -> int:
+    with _budget_lock:
+        _roll_day()
+        return max(0, AI_DAILY_CALL_BUDGET - _budget_state["used"])
+
+
+def consume_ai_budget() -> bool:
+    """Takes one call from today's budget; False when it is spent (resets at IST midnight)."""
+    with _budget_lock:
+        _roll_day()
+        if _budget_state["used"] >= AI_DAILY_CALL_BUDGET:
+            return False
+        _budget_state["used"] += 1
+        return True
+
+
+def reset_ai_budget() -> None:
+    with _budget_lock:
+        _budget_state["day"], _budget_state["used"] = None, 0
+
+
+
 def _gemini_key() -> Optional[str]:
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_GENAI_API_KEY")
 
@@ -110,9 +151,13 @@ def _claude():
 
 
 async def _call_gemini(system: str, user: str, schema: Type[T], media: Optional[Media] = None) -> Optional[T]:
+    if ai_budget_remaining() <= 0:
+        return None
     try:
         client = _gemini()
         if not client:
+            return None
+        if not consume_ai_budget():
             return None
         from google.genai import types
     except Exception as e:
@@ -160,11 +205,15 @@ def _claude_can_read(media: Optional[Media]) -> bool:
 
 
 async def _call_claude(system: str, user: str, schema: Type[T], media: Optional[Media] = None) -> Optional[T]:
+    if ai_budget_remaining() <= 0:
+        return None
     if not _claude_can_read(media):
         return None
     try:
         client = _claude()
         if not client:
+            return None
+        if not consume_ai_budget():
             return None
         import anthropic
     except Exception as e:
@@ -211,9 +260,13 @@ async def generate_json(system: str, user: str, schema: Type[T], media: Optional
 
 
 async def _gemini_tool_call(system: str, user: str, name: str, description: str, parameters: dict) -> Optional[Dict[str, Any]]:
+    if ai_budget_remaining() <= 0:
+        return None
     try:
         client = _gemini()
         if not client:
+            return None
+        if not consume_ai_budget():
             return None
         from google.genai import types
     except Exception as e:
@@ -247,9 +300,13 @@ async def _gemini_tool_call(system: str, user: str, name: str, description: str,
 
 
 async def _claude_tool_call(system: str, user: str, name: str, description: str, parameters: dict) -> Optional[Dict[str, Any]]:
+    if ai_budget_remaining() <= 0:
+        return None
     try:
         client = _claude()
         if not client:
+            return None
+        if not consume_ai_budget():
             return None
         import anthropic
     except Exception as e:

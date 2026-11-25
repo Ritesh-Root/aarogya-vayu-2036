@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import sandbox as sandbox_mod
+from app.llm import ai_budget_remaining
 from app.regions import DEFAULT_REGION, REGIONS, UnknownRegionError, get_region
 from app.models import (
     Facility, Medicine, InventoryItem, EnvironmentalReading,
@@ -394,6 +395,11 @@ async def get_news(
         "articles": [a.model_dump() for a in articles]
     }
 
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.get("/api/system/capabilities")
 async def get_system_capabilities():
     """
@@ -563,6 +569,12 @@ MAX_LLM_INPUT_CHARS = 1000
 PIPELINE_LLM_BUDGET_S = float(os.getenv("PIPELINE_LLM_BUDGET_S", "40"))
 _llm_hits: Dict[str, deque] = {}
 
+def require_ai_budget() -> None:
+    """Speech and vision have no rule-based fallback: say so plainly when today's AI budget is spent."""
+    if ai_budget_remaining() <= 0:
+        raise HTTPException(status_code=429, detail="Daily AI budget reached; try again tomorrow.")
+
+
 def enforce_llm_rate_limit(http_request: Request):
     # Vercel's edge sets x-real-ip itself; a client-supplied X-Forwarded-For is not trusted
     client_ip = http_request.headers.get("x-real-ip") or (http_request.client.host if http_request.client else "unknown")
@@ -590,6 +602,7 @@ async def transcribe_voice_note(http_request: Request, payload: Dict[str, Any] =
     if is_too_short_or_silent(audio[0]):
         return {"is_speech": False, "transcript": "", "language": "", "transcribed_by": "Audio check (too short or silent)"}
     enforce_llm_rate_limit(http_request)
+    require_ai_budget()
     result = await transcribe(audio)
     if not result:
         raise HTTPException(status_code=503, detail="Speech model unavailable; please type the report.")
@@ -608,6 +621,7 @@ async def speak_cmo_briefing(http_request: Request, payload: Dict[str, Any] = Bo
     if not text:
         raise HTTPException(status_code=400, detail="Nothing to read aloud.")
     enforce_llm_rate_limit(http_request)
+    require_ai_budget()
     result = await synthesize(text)
     if not result:
         raise HTTPException(status_code=503, detail="Speech model unavailable.")
@@ -918,6 +932,7 @@ async def verify_shelf_photo(http_request: Request, payload: Dict[str, Any] = Bo
         raise HTTPException(status_code=400, detail=str(ex))
     enforce_llm_rate_limit(http_request)
 
+    require_ai_budget()
     result = await scan_shelf(image, medicines_dict)
     if not result:
         raise HTTPException(status_code=503, detail="Vision model unavailable; please count manually.")
