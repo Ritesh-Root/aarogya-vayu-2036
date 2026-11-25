@@ -23,3 +23,4 @@ service_account.json
 video_assets/
 *.mp3
 .pytest_cache/
+.superpowers/
