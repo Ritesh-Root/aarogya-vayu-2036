@@ -65,3 +65,10 @@ def test_telemetry_coordinates_from_registry():
         assert (c["lat"], c["lng"]) == cfg.centroid
     with pytest.raises(UnknownRegionError):
         coordinates_for("mars")
+
+
+def test_capabilities_describe_sandbox_regions_and_aqi_scale():
+    caps = client.get("/api/system/capabilities").json()
+    assert set(caps["available_regions"]) == {"indore", "lucknow", "bhubaneswar"}
+    assert "sandbox_per_visitor" in caps and "ai_budget_remaining_today" in caps
+    assert "NAQI" in caps["data_provenance"]["air_quality_scale"]

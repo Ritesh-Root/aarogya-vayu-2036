@@ -1,5 +1,5 @@
 {
-  "assumptions": "Before/after simulation: what happens to the sample clinics during a climate surge with and\nwithout Aarogya-Vāyu's transfers. It uses the app's own demand engine and transfer allocator.\n\nModel (all assumptions are stated here and printed in the report):\n- A weather event (smog for Lucknow-Unnao, heat for Bhubaneswar-Cuttack) starts on day 0 and lasts\n  the whole window. Windows of 7, 14 and 21 days are run: the gap before the next monthly indent.\n- No deliveries from the district store arrive inside the window, in either run.\n- Daily use per clinic and medicine is Poisson with mean = normal use x the app's surge multiplier.\n- \"With Aarogya-Vāyu\": every morning the app's engine and allocator run on that day's stock, every\n  proposed transfer is approved, and it arrives the next morning. Rules are the app's own:\n  35 km, the donor keeps 14 days, no batch expiring within 30 days, oldest batch first.\n- Stock is used oldest batch first. A batch still on the shelf on its expiry date is wasted.\n- Inventory, facilities and multipliers are the app's sample data and rules, not field data.",
+  "assumptions": "Before/after simulation: what happens to the sample clinics during a climate surge with and\nwithout Aarogya-Vāyu's transfers. It uses the app's own demand engine and transfer allocator.\n\nModel (all assumptions are stated here and printed in the report):\n- A weather event (smog for Lucknow-Unnao, heat for Bhubaneswar-Cuttack and for the Indore division, MP)\n  starts on day 0 and lasts\n  the whole window. Windows of 7, 14 and 21 days are run: the gap before the next monthly indent.\n- No deliveries from the district store arrive inside the window, in either run.\n- Daily use per clinic and medicine is Poisson with mean = normal use x the app's surge multiplier.\n- \"With Aarogya-Vāyu\": every morning the app's engine and allocator run on that day's stock, every\n  proposed transfer is approved, and it arrives the next morning. Rules are the app's own:\n  35 km (50 km in the Indore division), the donor keeps 14 days, no batch expiring within 30 days,\n  oldest batch first.\n- Stock is used oldest batch first. A batch still on the shelf on its expiry date is wasted.\n- Inventory, facilities and multipliers are the app's sample data and rules, not field data.",
   "windows_days": [
     7,
     14,
@@ -69,6 +69,37 @@
           "unmet_doses_pct": -69.4,
           "expired_units_diff": 0
         }
+      },
+      "indore": {
+        "status_quo": {
+          "stockout_days": 89.5,
+          "unmet_doses": 9562.1,
+          "expired_units": 0,
+          "transfers": 0,
+          "units_moved": 0,
+          "km": 0.0,
+          "stockout_days_range": [
+            88,
+            91
+          ]
+        },
+        "with_app": {
+          "stockout_days": 37,
+          "unmet_doses": 4738.4,
+          "expired_units": 0,
+          "transfers": 19.6,
+          "units_moved": 8464,
+          "km": 668.1,
+          "stockout_days_range": [
+            35,
+            39
+          ]
+        },
+        "change": {
+          "stockout_days_pct": -58.7,
+          "unmet_doses_pct": -50.4,
+          "expired_units_diff": 0
+        }
       }
     },
     "14": {
@@ -133,6 +164,37 @@
           "unmet_doses_pct": -20.5,
           "expired_units_diff": 0
         }
+      },
+      "indore": {
+        "status_quo": {
+          "stockout_days": 362.5,
+          "unmet_doses": 38947.4,
+          "expired_units": 0,
+          "transfers": 0,
+          "units_moved": 0,
+          "km": 0.0,
+          "stockout_days_range": [
+            358,
+            369
+          ]
+        },
+        "with_app": {
+          "stockout_days": 260.1,
+          "unmet_doses": 31115.2,
+          "expired_units": 0,
+          "transfers": 19.9,
+          "units_moved": 8505.5,
+          "km": 677.3,
+          "stockout_days_range": [
+            253,
+            267
+          ]
+        },
+        "change": {
+          "stockout_days_pct": -28.2,
+          "unmet_doses_pct": -20.1,
+          "expired_units_diff": 0
+        }
       }
     },
     "21": {
@@ -195,6 +257,37 @@
         "change": {
           "stockout_days_pct": -7.0,
           "unmet_doses_pct": -1.9,
+          "expired_units_diff": 0
+        }
+      },
+      "indore": {
+        "status_quo": {
+          "stockout_days": 1027.4,
+          "unmet_doses": 107625.4,
+          "expired_units": 0,
+          "transfers": 0,
+          "units_moved": 0,
+          "km": 0.0,
+          "stockout_days_range": [
+            1016,
+            1035
+          ]
+        },
+        "with_app": {
+          "stockout_days": 969.9,
+          "unmet_doses": 105745.2,
+          "expired_units": 0,
+          "transfers": 19.9,
+          "units_moved": 8505.5,
+          "km": 677.3,
+          "stockout_days_range": [
+            957,
+            978
+          ]
+        },
+        "change": {
+          "stockout_days_pct": -5.6,
+          "unmet_doses_pct": -1.7,
           "expired_units_diff": 0
         }
       }

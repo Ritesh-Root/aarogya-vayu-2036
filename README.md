@@ -3,24 +3,45 @@
 <img src="docs/banner.svg" width="100%" alt="Aarogya-Vāyu: moves medicine to rural clinics before smog or heat empties their shelves">
 
 <h3>
-  <a href="https://aarogya-vayu.vercel.app"><b>▶&nbsp; Try the live app</b></a>
+  <a href="__LIVE_URL__"><b>▶&nbsp; Try the live app</b></a>
   &nbsp;·&nbsp;
-  <a href="https://youtu.be/D8w2qviTuW4">🎬&nbsp; Watch the video</a>
+  <a href="__VIDEO_URL__">🎬&nbsp; Watch the video</a>
   &nbsp;·&nbsp;
   <a href="#-try-it-in-60-seconds">⏱️&nbsp; 60-second tour</a>
   &nbsp;·&nbsp;
   <a href="#-how-it-works">🧭&nbsp; How it works</a>
 </h3>
 
-[![tests](https://github.com/Ritesh-Root/aarogya-vayu/actions/workflows/tests.yml/badge.svg)](https://github.com/Ritesh-Root/aarogya-vayu/actions/workflows/tests.yml)
+[![tests](https://github.com/Ritesh-Root/aarogya-vayu-2036/actions/workflows/tests.yml/badge.svg)](https://github.com/Ritesh-Root/aarogya-vayu-2036/actions/workflows/tests.yml)
 [![Gemini 3.8 Flash](https://img.shields.io/badge/Google%20Gemini-3.8%20Flash-4285F4?logo=googlegemini&logoColor=white)](https://ai.google.dev/)
 [![Live air data](https://img.shields.io/badge/live%20data-Open--Meteo%20%2B%20Copernicus%20CAMS-2F6B52)](https://open-meteo.com/en/docs/air-quality-api)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python%203.12-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Deployed on Vercel](https://img.shields.io/badge/deployed-Vercel-000?logo=vercel&logoColor=white)](https://aarogya-vayu.vercel.app)
+[![Cloud Run](https://img.shields.io/badge/deployed-Google%20Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)](__LIVE_URL__)
 
-**🏆 Top 10 finalist · Google *Build with AI: Code for Communities 2.0* · Track 3: Smart Health & Supply Chain Resilience**
+**BUILD 2036 · TiE Global Summit 2026, Indore · Health, Longevity & Biotechnology**<br>
+<sub>Earlier version: Top 10 finalist, Google <i>Build with AI: Code for Communities 2.0</i></sub>
 
 </div>
+
+---
+
+## ☀️ Why the Indore division
+
+Jhabua, Alirajpur and Barwani are the three districts of Madhya Pradesh rated **"Very High" heat-health vulnerability** ([Das et al. 2026, Springer Nature](https://link.springer.com/article/10.1007/s44475-026-00083-8)). In May 2026 the weather department put Dhar, Jhabua, Alirajpur and Barwani under heatwave alerts as Ratlam touched 45 °C. A heatwave empties a rural clinic's ORS and IV fluids within days, while the district hospital 15 km away holds batches that will expire unused.
+
+**In the app's Indore heatwave scenario (46 °C):** CHC Ranapur has **0.9 days** of ORS left. District Hospital Jhabua, **15.2 km** away, has ORS that expires within 90 days. Aarogya-Vāyu proposes **850 sachets**, taking Ranapur to **4.9 days**, and the dispatch note carries the MP state code. At the Jan Aushadhi price (₹10.98 a sachet) that one transfer moves **₹9,333** of medicine that would otherwise have expired.
+
+<sub>Facility names and towns are real; beds, population and every stock figure are sample data (no public stock API exists). MP's medicine supply runs on e-Aushadhi (MPPHSCL); the roadmap is to read its exports.</sub>
+
+### New in this version (BUILD 2036)
+
+| | What changed |
+|---|---|
+| 🗺️ **Indore division, MP** | 20 real block and district health facilities across Indore, Dhar, Jhabua, Alirajpur and Barwani; MP heatwave scenario; 50 km donor radius for MP's larger districts; MP challans |
+| 💰 **Rupees panel** | "What your approvals saved": rupees of near-expiry stock moved (Jan Aushadhi MRPs, each one cited), clinic stockout-days avoided, running cost, with every assumption listed |
+| 🇮🇳 **India's AQI** | Air quality is now India's National AQI (CPCB), computed from PM2.5/PM10; it was the US index, which under-triggered India-scale alert bands |
+| 👥 **Your own copy of the demo** | Each visitor gets a private sandbox: your approvals and audit log never change what another judge sees. **Reset my demo** restarts only yours |
+| 🛡️ **Fixes from an audit** | Write endpoints reject absurd values; a failed save no longer leaves an audit entry behind; a transfer never exceeds the batch on its challan; a voice report from an unknown clinic asks which clinic instead of guessing; a global daily cap on paid AI calls |
 
 ---
 
@@ -96,36 +117,36 @@ flowchart LR
 
 ## ⏱️ Try it in 60 seconds
 
-Open **[aarogya-vayu.vercel.app](https://aarogya-vayu.vercel.app)** and:
+Open **[the live app](__LIVE_URL__)** and:
 
 - [ ] Read the strip at the top: four numbered steps. Click any step to jump to it.
-- [ ] Under **Conditions**, pick **🌫️ Smog (demo)**. The banner and the clinic list change.
+- [ ] Region **Indore Div. (MP)**, then under **Conditions** pick **☀️ Heatwave (demo)**. The banner and the clinic list change.
 - [ ] Under **Clinics running low**, press **Find stock** on the first clinic. Watch the five agents light up.
-- [ ] Press **Review and approve**, then **Approve & Reserve Stock**. A dispatch note appears.
+- [ ] Press **Review and approve**, then **Approve & Reserve Stock**. A dispatch note with the MP state code appears, and **What your approvals saved** updates.
 - [ ] Press **Ask** in the side menu and ask *"Which clinics will run out first?"* Then press **Read aloud** to hear Gemini's voice.
 - [ ] Press **Photo** and upload [`docs/samples/shelf_salbutamol.jpg`](docs/samples/shelf_salbutamol.jpg). Gemini counts the boxes and checks them against the register.
 - [ ] Press **Audit**, then **Verify**. Every action is hash-chained.
 - [ ] Try **🌧️ Flood (demo)** and **❄️ Cold wave (demo)**: the alerts move to ORS and fever medicine, then to antibiotics.
 - [ ] Press **Clinic** in the side menu, then **हिन्दी**. The clinic's own screen switches to Hindi.
-- [ ] Your **Conditions** choice is yours alone: it is remembered in your browser and doesn't change what other visitors see.
+- [ ] Your region, **Conditions** and every approval are yours alone: they never change what other visitors see. **↺ Reset my demo** starts your copy over.
 
 ---
 
 ## 📊 Does it help? A simulation
 
-We replayed a climate surge on the app's 40 sample clinics, with and without Aarogya-Vāyu, using the app's own demand engine and transfer allocator (`scripts/simulate_impact.py`, 20 runs each, no store deliveries inside the window).
+We replayed a climate surge on the app's 60 sample clinics, with and without Aarogya-Vāyu, using the app's own demand engine and transfer allocator (`scripts/simulate_impact.py`, 20 runs each, no store deliveries inside the window).
 
 <div align="center">
 <img src="docs/impact.svg" width="100%" alt="Simulated days a clinic ran out of a medicine, with and without Aarogya-Vāyu, over 7, 14 and 21 days">
 </div>
 
-| Surge window | Smog, Lucknow-Unnao | Heatwave, Bhubaneswar-Cuttack |
-|---|:-:|:-:|
-| **First 7 days** | **−42%** clinic-days without the medicine, −32% doses missed | **−83%** clinic-days, −69% doses missed |
-| First 14 days | −6% clinic-days, −5% doses | −32% clinic-days, −21% doses |
-| First 21 days | −1% | −7% |
+| Surge window | Heatwave, Indore division (MP) | Smog, Lucknow-Unnao | Heatwave, Bhubaneswar-Cuttack |
+|---|:-:|:-:|:-:|
+| **First 7 days** | **−59%** clinic-days without the medicine, −50% doses missed | **−42%** clinic-days, −32% doses missed | **−83%** clinic-days, −69% doses missed |
+| First 14 days | −28% clinic-days, −20% doses | −6% clinic-days, −5% doses | −32% clinic-days, −21% doses |
+| First 21 days | −6% | −1% | −7% |
 
-**What this says:** moving spare stock between nearby clinics prevents most stockouts in the first week of a surge. After about two weeks, the whole district is short (the sample data holds about 17–20 days of each medicine across all clinics), and no amount of redistribution helps; the district needs resupply. That's why the app also reports **unmet demand** (shortages no clinic within 35 km can cover) for escalation to the district store.
+**What this says:** moving spare stock between nearby clinics prevents most stockouts in the first week of a surge. After about two weeks, the whole district is short (the sample data holds about 17–20 days of each medicine across all clinics), and no amount of redistribution helps; the district needs resupply. That's why the app also reports **unmet demand** (shortages no clinic within reach can cover: 35 km, or 50 km in the Indore division) for escalation to the district store.
 
 <sub>Sample inventory and the app's own multipliers, not field data. Assumptions are listed at the top of the script; results are in `docs/impact.json`.</sub>
 
@@ -207,11 +228,12 @@ sequenceDiagram
 The allocator in `app/optimizer.py` is a deterministic greedy algorithm, not a model:
 
 1. **Recipients, most critical first:** clinics sorted by days of cover.
-2. **Eligible donors:** within **35 km** (straight line), at least **16 days** of surge-adjusted cover, and at least one batch that is **30+ days** from expiry.
+2. **Eligible donors:** within **35 km** (straight line; **50 km** in the Indore division, where districts are larger), at least **16 days** of surge-adjusted cover, and at least one batch that is **30+ days** from expiry.
 3. **Donor order:** stock at risk of expiring first, then the soonest expiry, then the most cover.
 4. **Quantity:** enough to bring the recipient to **14 days** of cover, never taking the donor below **14 days** of its own surge-adjusted use, in packs of 10.
 5. **Batch:** first expiry, first out (FEFO).
-6. **Escalation:** if no clinic within 35 km can help, the shortfall is escalated with the reasons each candidate was rejected.
+6. **Batch size:** one consignment ships one batch, so a transfer never exceeds the largest usable batch.
+7. **Escalation:** if no clinic within reach can help, the shortfall is escalated with the reasons each candidate was rejected.
 
 When a transfer is approved, the donor's and the recipient's stock change by exactly the same amount; a stale or double approval is rejected with `409 Conflict`.
 
@@ -274,6 +296,11 @@ Thresholds are in `app/surge_engine.py`. The engine plans against the worse of t
 | `POST` | `/api/vision/verify-shelf-photo` | Count stock in a shelf photo and compare with the register |
 | `GET` | `/api/audit-log/verify` | Walk the SHA-256 hash chain from the first entry |
 | `GET` | `/api/system/capabilities` | What is live, what is sample data, which AI providers are set |
+| `GET` | `/api/impact/value?region=` | Rupees and clinic-days your approved transfers returned, with assumptions |
+| `POST` | `/api/demo/reset` | Reset your own sandbox (other visitors are unaffected) |
+| `GET` | `/api/health` | Health check |
+
+Region-scoped endpoints take `?region=indore|lucknow|bhubaneswar`; an unknown region is a `400`, never a silent fallback. The audit log is per region (`/api/audit-log?region=`).
 
 Clinic workflow (stock actions, dispatch, receipt, reconciliation) lives under `/api/clinic/{facility_id}/…` and `/api/transfer/…`.
 
@@ -285,18 +312,18 @@ Clinic workflow (stock actions, dispatch, receipt, reconciliation) lives under `
 <br>
 
 ```bash
-git clone https://github.com/Ritesh-Root/aarogya-vayu.git
-cd aarogya-vayu
+git clone https://github.com/Ritesh-Root/aarogya-vayu-2036.git
+cd aarogya-vayu-2036
 cp .env.example .env          # add GEMINI_API_KEY (free at https://aistudio.google.com/)
 
 uv sync                       # or: python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
-uv run pytest -q              # 55 tests; no API keys needed (AI calls fall back offline)
-uv run uvicorn app.main:app --port 8000
+uv run pytest -q              # 143 tests; no API keys needed (AI calls fall back offline)
+AV_SANDBOX=1 DEFAULT_REGION=indore uv run uvicorn app.main:app --port 8000
 ```
 
 Open <http://localhost:8000>. Without a Gemini key the app still runs: voice reports use the rule-based parser and the CMO answers come from a template.
 
-> Tests write to `data/*.json`. Run `git checkout -- data` afterwards to restore the demo dataset, and don't run two test sessions at once.
+> `AV_SANDBOX=1` gives each browser its own in-memory copy of the demo (as the live app does). The older tests write to `data/*.json`. Run `git checkout -- data` afterwards to restore the demo dataset, and don't run two test sessions at once.
 
 </details>
 
@@ -308,8 +335,12 @@ Open <http://localhost:8000>. Without a Gemini key the app still runs: voice rep
 ```
 app/
   main.py                FastAPI routes, rate limits, approval flow
+  regions.py             The three regions: districts, centroid, donor radius, state code (one source of truth)
+  sandbox.py             Per-visitor demo sandbox (cookie session, in-memory, capped and expiring)
+  naqi.py                India National AQI (CPCB) from PM2.5 / PM10
+  impact_value.py        Rupees-saved panel: prices, assumptions
   agent_orchestrator.py  The five-agent pipeline and Gemini function calling
-  optimizer.py           Deterministic transfer allocator (35 km, 14-day reserve, FEFO)
+  optimizer.py           Deterministic transfer allocator (35/50 km, 14-day reserve, FEFO)
   surge_engine.py        Weather → demand multipliers → days of cover
   telemetry_service.py   Open-Meteo + Copernicus CAMS live feed
   speech_service.py      Gemini speech-to-text and text-to-speech
@@ -318,8 +349,9 @@ app/
   llm.py                 Gemini first, Claude Haiku fallback, time budgets
   audit_ledger.py        SHA-256 hash-chained audit log
 static/                  Single-page app (Tailwind, Leaflet, Lucide)
-data/                    Sample facilities, inventory and medicines (two regions)
-tests/                   55 tests: allocator invariants, API, scenarios, clinic workflow
+data/                    Facilities, sample inventory and medicines (three regions; Jan Aushadhi prices)
+tests/                   143 tests: allocator invariants, API, scenarios, sandbox, NAQI, Indore, clinic workflow
+scripts/smoke_ui.cjs     Playwright UI smoke test (Indore heatwave -> approve -> MP challan; second visitor untouched)
 scripts/simulate_impact.py  Before/after simulation (writes docs/impact.svg and docs/impact.json)
 ```
 
@@ -340,7 +372,7 @@ A rough estimate for one district of 20 clinics, at Google's published Gemini AP
 | 80 shelf-photo checks | one image, short answer | ~$0.20 |
 | **Total** | | **≈ $10 a month (under ₹1,000)** |
 
-<sub>gemini-3.8-flash: $0.75 / 1M input, $3.75 / 1M output; gemini-3.8-flash-tts: $9 / 1M audio output ([pricing page](https://ai.google.dev/gemini-api/docs/pricing)). Google has announced these 3.8 prices double from 1 Jan 2027 (≈ $20 a month). Token sizes are our estimates, not measured; Gemini's thinking tokens are billed as output and could raise the total. Hosting runs on Vercel's free tier; a pilot would add a small database for durable storage.</sub>
+<sub>gemini-3.8-flash: $0.75 / 1M input, $3.75 / 1M output; gemini-3.8-flash-tts: $9 / 1M audio output ([pricing page](https://ai.google.dev/gemini-api/docs/pricing)). Google has announced these 3.8 prices double from 1 Jan 2027 (≈ $20 a month). Token sizes are our estimates, not measured; Gemini's thinking tokens are billed as output and could raise the total. The demo runs on one always-on Google Cloud Run instance; a pilot would add a shared, authenticated database. A global daily cap on AI calls (`AI_DAILY_CALL_BUDGET`) bounds the demo's spend.</sub>
 
 ---
 
@@ -349,13 +381,16 @@ A rough estimate for one district of 20 clinics, at Google's published Gemini AP
 - **A person approves every transfer.** The AI proposes; the district CMO decides.
 - **No patient data.** Only facility stock counts and batch codes (DPDP Act 2023).
 - **Tamper-evident log.** Every report, approval and dispatch is SHA-256 hash-chained; editing a past entry breaks verification. Entries are not yet digitally signed, so the log proves tampering, not authorship.
-- **Overlay, not a replacement.** Designed to read from e-Aushadhi / DVDMS exports and send proposals back, with no new hardware.
+- **Overlay, not a replacement.** Designed to read from e-Aushadhi / DVDMS exports (in MP, the MPPHSCL e-Aushadhi system) and send proposals back, with no new hardware.
+- **Demo sandbox.** Roles are simulated and each visitor's data is a private in-memory copy that expires after a day. A real deployment would use one shared store behind real login.
 
 ## 🗺️ Roadmap
 
 | Next | Why |
 |---|---|
-| Pilot on one district's real e-Aushadhi export (read-only) | Replace sample inventory with real stock |
+| Pilot in the Indore division on a read-only MP e-Aushadhi (MPPHSCL) export | Replace sample inventory with real stock, starting with Jhabua, Alirajpur and Barwani |
+| Shared, authenticated store (Firestore) and real login with role-based signing | Today's demo keeps each visitor's data in memory |
+| All 55 MP districts | One district health office per subscription |
 | Dengue and malaria after the monsoon | Vector-borne fevers peak 1–3 months after heavy rain; floods currently cover the acute diarrhoea phase only |
 | Road distance and 108/102 ambulance return trips | More realistic transport |
 | Learned demand forecast | Once a pilot provides real consumption history |
@@ -365,7 +400,8 @@ A rough estimate for one district of 20 clinics, at Google's published Gemini AP
 
 <div align="center">
 
-Built by **Ritesh Kumar Mahato** for Google's *Build with AI: Code for Communities 2.0*
+Built by **Ritesh Kumar Mahato** for **BUILD 2036**, the official hackathon of the TiE Global Summit 2026, Indore<br>
+<sub>Earlier version built for Google's <i>Build with AI: Code for Communities 2.0</i> (Top 10)</sub>
 
 <sub>Air quality: <a href="https://open-meteo.com/">Open-Meteo</a> and <a href="https://atmosphere.copernicus.eu/">Copernicus CAMS</a> · Map: <a href="https://leafletjs.com/">Leaflet</a> and © OpenStreetMap contributors</sub>
 

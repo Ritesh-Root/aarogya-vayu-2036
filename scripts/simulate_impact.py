@@ -3,13 +3,15 @@ Before/after simulation: what happens to the sample clinics during a climate sur
 without Aarogya-Vāyu's transfers. It uses the app's own demand engine and transfer allocator.
 
 Model (all assumptions are stated here and printed in the report):
-- A weather event (smog for Lucknow-Unnao, heat for Bhubaneswar-Cuttack) starts on day 0 and lasts
+- A weather event (smog for Lucknow-Unnao, heat for Bhubaneswar-Cuttack and for the Indore division, MP)
+  starts on day 0 and lasts
   the whole window. Windows of 7, 14 and 21 days are run: the gap before the next monthly indent.
 - No deliveries from the district store arrive inside the window, in either run.
 - Daily use per clinic and medicine is Poisson with mean = normal use x the app's surge multiplier.
 - "With Aarogya-Vāyu": every morning the app's engine and allocator run on that day's stock, every
   proposed transfer is approved, and it arrives the next morning. Rules are the app's own:
-  35 km, the donor keeps 14 days, no batch expiring within 30 days, oldest batch first.
+  35 km (50 km in the Indore division), the donor keeps 14 days, no batch expiring within 30 days,
+  oldest batch first.
 - Stock is used oldest batch first. A batch still on the shelf on its expiry date is wasted.
 - Inventory, facilities and multipliers are the app's sample data and rules, not field data.
 
@@ -47,12 +49,16 @@ EVENTS = {
     "bhubaneswar": ("Heatwave, Bhubaneswar-Cuttack", EnvironmentalReading(
         aqi=140, pm25=65.0, temperature_c=43.5, humidity_pct=35.0, heatwave_alert=True, smog_episode=False,
         corridor="Bhubaneswar-Cuttack")),
+    "indore": ("Heatwave, Indore division (MP)", EnvironmentalReading(
+        aqi=133, pm25=70.0, pm10=140.0, temperature_c=46.0, humidity_pct=18.0, heatwave_alert=True,
+        smog_episode=False, corridor="Indore division")),
 }
 NORMAL = EnvironmentalReading(aqi=75, pm25=28.0, temperature_c=26.0, humidity_pct=60.0,
                               heatwave_alert=False, smog_episode=False, corridor="Normal")
 
 FILES = {"lucknow": ("facilities.json", "inventory.json"),
-         "bhubaneswar": ("facilities_bhubaneswar.json", "inventory_bhubaneswar.json")}
+         "bhubaneswar": ("facilities_bhubaneswar.json", "inventory_bhubaneswar.json"),
+         "indore": ("facilities_indore.json", "inventory_indore.json")}
 
 
 def load(region):
@@ -188,16 +194,16 @@ def summarise(region, days=None):
 
 def svg_chart(results):
     """Days a clinic ran out of a medicine, today vs with the app, for each window and region."""
-    W, H = 960, 470
+    regions = tuple((r, EVENTS[r][0]) for r in EVENTS)
+    W, H = 480 * len(regions), 470
     teal, clay, ink, muted = "#2F6B52", "#B4321E", "#2E221D", "#5C4A44"
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="Segoe UI,Helvetica,Arial,sans-serif">',
              f'<rect width="{W}" height="{H}" rx="20" fill="#FFFDF9"/>',
              f'<text x="32" y="44" font-size="22" font-weight="800" fill="{ink}">Transfers stop most stockouts in week 1; after ~2 weeks the district needs resupply</text>',
-             f'<text x="32" y="70" font-size="14" fill="{muted}">Days a clinic ran out of a medicine. Simulation on the app\'s 40 sample clinics, mean of {SEEDS} runs, no store deliveries in the window.</text>',
+             f'<text x="32" y="70" font-size="14" fill="{muted}">Days a clinic ran out of a medicine. Simulation on the app\'s {sum(len(load(r)[0]) for r in EVENTS)} sample clinics, mean of {SEEDS} runs, no store deliveries in the window.</text>',
              f'<rect x="{W - 330}" y="92" width="14" height="14" rx="3" fill="{clay}"/><text x="{W - 310}" y="104" font-size="13" fill="{ink}">Today (no transfers)</text>',
              f'<rect x="{W - 170}" y="92" width="14" height="14" rx="3" fill="{teal}"/><text x="{W - 150}" y="104" font-size="13" fill="{ink}">With Aarogya-Vāyu</text>']
-    regions = (("lucknow", "Winter smog, Lucknow-Unnao"), ("bhubaneswar", "Heatwave, Bhubaneswar-Cuttack"))
-    pw = (W - 96) / 2
+    pw = (W - 32 * (len(regions) + 1)) / len(regions)
     base_y, bar_h = 410, 230
     for p, (region, title) in enumerate(regions):
         x0 = 32 + p * (pw + 32)
@@ -220,7 +226,7 @@ def svg_chart(results):
 
 
 def main():
-    results = {w: {region: summarise(region, w) for region in ("lucknow", "bhubaneswar")} for w in WINDOWS}
+    results = {w: {region: summarise(region, w) for region in EVENTS} for w in WINDOWS}
     report = {
         "assumptions": __doc__.split("Run:")[0].strip(),
         "windows_days": list(WINDOWS), "seeds": SEEDS, "results": results,
