@@ -68,19 +68,19 @@ class InventoryItem(BaseModel):
         self.available = max(0, raw)
 
 class EnvironmentalReading(BaseModel):
-    aqi: int = Field(default=385, description="Air Quality Index")
-    pm25: float = Field(default=245.0, description="PM2.5 in ug/m3")
-    pm10: Optional[float] = Field(default=None, description="PM10 in ug/m3")
-    temperature_c: float = Field(default=18.5, description="Ambient temperature in Celsius")
-    humidity_pct: float = Field(default=75.0, description="Relative humidity %")
-    wind_speed_kmh: Optional[float] = Field(default=None, description="Wind speed in km/h")
+    aqi: int = Field(default=385, ge=0, le=500, description="Air Quality Index")
+    pm25: float = Field(default=245.0, ge=0, le=1500, description="PM2.5 in ug/m3")
+    pm10: Optional[float] = Field(default=None, ge=0, le=2000, description="PM10 in ug/m3")
+    temperature_c: float = Field(default=18.5, ge=-30, le=60, description="Ambient temperature in Celsius")
+    humidity_pct: float = Field(default=75.0, ge=0, le=100, description="Relative humidity %")
+    wind_speed_kmh: Optional[float] = Field(default=None, ge=0, le=400, description="Wind speed in km/h")
     heatwave_alert: bool = Field(default=False)
     smog_episode: bool = Field(default=True)
     flood_alert: bool = Field(default=False, description="Very heavy rain / flood conditions")
     cold_wave_alert: bool = Field(default=False, description="Cold wave conditions")
-    rain_24h_mm: Optional[float] = Field(default=None, description="Heaviest 24 h rainfall, yesterday to +3 days (mm)")
-    min_temp_c: Optional[float] = Field(default=None, description="Lowest minimum temperature, yesterday to +3 days (°C)")
-    corridor: str = Field(default="Demo corridor")
+    rain_24h_mm: Optional[float] = Field(default=None, ge=0, le=2000, description="Heaviest 24 h rainfall, yesterday to +3 days (mm)")
+    min_temp_c: Optional[float] = Field(default=None, ge=-30, le=60, description="Lowest minimum temperature, yesterday to +3 days (°C)")
+    corridor: str = Field(default="Demo corridor", max_length=200)
     source: Optional[str] = Field(default=None, description="Data source attribution (e.g. Open-Meteo CAMS)")
     recorded_at: Optional[str] = Field(default=None, description="Telemetry timestamp")
     # Live-only enrichments (None in scenario mode or when the feed is unavailable)
@@ -243,16 +243,16 @@ class TransferConsignment(BaseModel):
     cryptographic_hash: Optional[str] = None
 
 class StockActionRequest(BaseModel):
-    facility_id: str
-    medicine_id: str
-    batch_number: str
-    action_type: str  # "PHYSICAL_COUNT", "STOCK_RECEIVED", "STOCK_ISSUED", "QUARANTINE_DAMAGED"
-    quantity: int  # count target or delta
-    reason: str
-    operator_name: str = "Staff Pharmacist"
+    facility_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    medicine_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    batch_number: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    action_type: str = Field(max_length=40)  # "PHYSICAL_COUNT", "STOCK_RECEIVED", "STOCK_ISSUED", "QUARANTINE_DAMAGED"
+    quantity: int = Field(ge=0, le=100_000)  # count target or delta
+    reason: str = Field(max_length=500)
+    operator_name: str = Field(default="Staff Pharmacist", max_length=120)
     operator_role: str = "PHARMACIST"
     expected_version: Optional[int] = None
-    idempotency_key: Optional[str] = None
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
 
 class StockActionResult(BaseModel):
     success: bool
@@ -275,43 +275,43 @@ class StockActionResult(BaseModel):
     timestamp: str
 
 class DispatchConsignmentRequest(BaseModel):
-    consignment_id: str
+    consignment_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     operator_name: str = "Staff Pharmacist"
     operator_role: str = "PHARMACIST"
-    vehicle_number: Optional[str] = None
-    courier_notes: Optional[str] = None
-    idempotency_key: Optional[str] = None
+    vehicle_number: Optional[str] = Field(default=None, max_length=32)
+    courier_notes: Optional[str] = Field(default=None, max_length=500)
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
 
 class ReceiveConsignmentRequest(BaseModel):
-    consignment_id: str
+    consignment_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     operator_name: str = "Staff Pharmacist"
     operator_role: str = "PHARMACIST"
-    accepted_units: int = Field(ge=0)
-    quarantined_units: int = Field(default=0, ge=0)
-    missing_units: int = Field(default=0, ge=0)
+    accepted_units: int = Field(ge=0, le=100_000)
+    quarantined_units: int = Field(default=0, ge=0, le=100_000)
+    missing_units: int = Field(default=0, ge=0, le=100_000)
     condition_intact: bool = True
-    discrepancy_notes: Optional[str] = None
-    idempotency_key: Optional[str] = None
+    discrepancy_notes: Optional[str] = Field(default=None, max_length=500)
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
 
 class CancelConsignmentRequest(BaseModel):
-    consignment_id: str
+    consignment_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     operator_name: str = "Dr. Authorized MOIC"
     operator_role: str = "MOIC"
-    reason: str
-    idempotency_key: Optional[str] = None
+    reason: str = Field(max_length=500)
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
 
 class ResolveReconciliationRequest(BaseModel):
-    facility_id: str
-    medicine_id: str
-    batch_number: str
+    facility_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    medicine_id: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    batch_number: str = Field(max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     resolution_type: str  # "SUPERVISOR_RECOUNT", "CANCEL_RESERVATIONS", "ADJUST_QUARANTINE"
-    verified_physical_count: Optional[int] = None
+    verified_physical_count: Optional[int] = Field(default=None, ge=0, le=100_000)
     cancelled_consignment_ids: Optional[List[str]] = None
-    quarantine_adjustment: Optional[int] = None
+    quarantine_adjustment: Optional[int] = Field(default=None, ge=-100_000, le=100_000)
     supervisor_name: str = "Dr. S. K. Saxena (MOIC)"
     supervisor_role: str = "MOIC"
     resolution_notes: str
-    idempotency_key: Optional[str] = None
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
 
 class ResolveReconciliationResult(BaseModel):
     success: bool
@@ -422,7 +422,7 @@ class VoiceIntakeResponse(BaseModel):
     parsed_by: Optional[str] = None  # "gemini", "claude" or "heuristic"
 
 class ApprovalRequest(BaseModel):
-    recommendation_id: str
+    recommendation_id: str = Field(max_length=128)
     officer_name: str = "Dr. S. K. Saxena (Chief Medical Officer, District Health Society)"
-    comments: Optional[str] = None
-    idempotency_key: Optional[str] = None
+    comments: Optional[str] = Field(default=None, max_length=500)
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)

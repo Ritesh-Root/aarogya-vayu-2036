@@ -11,15 +11,6 @@ from app.storage import StorageError
 FAC = "PHC-LKO-01"
 
 
-@pytest.fixture
-def sandboxed(monkeypatch):
-    monkeypatch.setattr(main_module.storage, "sandbox", True)
-    monkeypatch.setattr(main_module.audit_ledger, "sandbox", True)
-    store = sandbox.SessionStore(max_sessions=500, ttl_s=86400)
-    monkeypatch.setattr(sandbox, "SESSIONS", store)
-    return store
-
-
 def _client():
     return TestClient(main_module.app)
 
