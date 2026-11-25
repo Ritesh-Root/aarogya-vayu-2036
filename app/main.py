@@ -177,6 +177,8 @@ def resolve_region(region: Any) -> str:
 
 def recompute_recommendations(target_region: Optional[str] = None):
     global inventory_data, active_recommendations, active_unmet_demands, current_env
+    if storage.sandbox and sandbox_mod.current_session.get() != "shared":
+        return  # shared caches are only used by the non-sandbox mode; never compute them from one visitor's stock
     regions_to_run = [target_region] if target_region else list(REGIONS)
     for reg in regions_to_run:
         if reg not in REGIONS_CONFIG:
@@ -284,7 +286,8 @@ _view_recs: Dict[tuple, Dict[str, TransferRecommendation]] = {}
 
 def resolve_scenario(scenario: Any) -> Optional[str]:
     if scenario is None or scenario == "":
-        return None
+        # In the per-visitor sandbox the shared, scenario-less mode would leak one visitor's approvals to others
+        return "live" if storage.sandbox else None
     sc = str(scenario).strip().lower()
     if sc not in SCENARIOS:
         raise HTTPException(status_code=400, detail=f"Unknown scenario '{sc}'. Available: {list(SCENARIOS)}")
@@ -500,6 +503,8 @@ async def get_live_environmental(region: Optional[str] = None):
 
 @app.post("/api/environmental/live/activate")
 async def activate_live_environmental(region: Optional[str] = None):
+    if storage.sandbox:
+        raise HTTPException(status_code=403, detail="Shared conditions are read-only in the demo; pick Conditions in the app (sent as ?scenario=).")
     reg = resolve_region(region)
     if reg in env_mode_by_region:
         env_mode_by_region[reg] = "live"
@@ -531,6 +536,8 @@ async def activate_live_environmental(region: Optional[str] = None):
 
 @app.post("/api/environmental")
 async def update_environmental(env: EnvironmentalReading, region: Optional[str] = None):
+    if storage.sandbox:
+        raise HTTPException(status_code=403, detail="Shared conditions are read-only in the demo; pick Conditions in the app (sent as ?scenario=).")
     global current_env
     corridor_lower = (env.corridor or "").lower()
     if region:
@@ -617,8 +624,8 @@ def enforce_llm_rate_limit(http_request: Request):
     ip = client_ip(http_request)
     now = time.monotonic()
     if len(_llm_hits) > 10000:
-        for ip in [ip for ip, h in _llm_hits.items() if not h or now - h[-1] > 60]:
-            del _llm_hits[ip]
+        for stale in [k for k, h in _llm_hits.items() if not h or now - h[-1] > 60]:
+            del _llm_hits[stale]
     hits = _llm_hits.setdefault(ip, deque())
     while hits and now - hits[0] > 60:
         hits.popleft()

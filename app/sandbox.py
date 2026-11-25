@@ -60,6 +60,15 @@ class SessionStore:
                 regions[region] = seed()
             return regions[region]
 
+    def peek(self, session_id: str, region: str) -> Optional[dict]:
+        """The session's state for a region if it exists (and is not expired), without creating or renewing it.
+        Reads use this, so anonymous page views can't fill the store and evict real visitors' sessions."""
+        with self._lock:
+            entry = self._sessions.get(session_id)
+            if entry is None or time.time() - entry["ts"] >= self.ttl_s:
+                return None
+            return entry["regions"].get(region)
+
     def reset(self, session_id: str) -> None:
         with self._lock:
             self._sessions.pop(session_id, None)

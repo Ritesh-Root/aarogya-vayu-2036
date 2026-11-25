@@ -317,7 +317,7 @@ cd aarogya-vayu-2036
 cp .env.example .env          # add GEMINI_API_KEY (free at https://aistudio.google.com/)
 
 uv sync                       # or: python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
-uv run pytest -q              # 143 tests; no API keys needed (AI calls fall back offline)
+uv run pytest -q              # 150 tests; no API keys needed (AI calls fall back offline)
 AV_SANDBOX=1 DEFAULT_REGION=indore uv run uvicorn app.main:app --port 8000
 ```
 
@@ -350,7 +350,7 @@ app/
   audit_ledger.py        SHA-256 hash-chained audit log
 static/                  Single-page app (Tailwind, Leaflet, Lucide)
 data/                    Facilities, sample inventory and medicines (three regions; Jan Aushadhi prices)
-tests/                   143 tests: allocator invariants, API, scenarios, sandbox, NAQI, Indore, clinic workflow
+tests/                   150 tests: allocator invariants, API, scenarios, sandbox, NAQI, Indore, clinic workflow
 scripts/smoke_ui.cjs     Playwright UI smoke test (Indore heatwave -> approve -> MP challan; second visitor untouched)
 scripts/simulate_impact.py  Before/after simulation (writes docs/impact.svg and docs/impact.json)
 ```

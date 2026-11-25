@@ -53,6 +53,14 @@ function check(cond, msg) {
     check(logB.length === 1 && logB[0].event_type === 'GENESIS', 'visitor B audit chain is untouched');
     const recsB = await pageB.evaluate(() => fetch('/api/recommendations?region=indore&scenario=heat').then(r => r.json()));
     check(recsB.length > 0 && recsB.every(r => r.status !== 'APPROVED'), 'visitor B sees no approvals');
+    // A visitor who never picks Conditions (no ?scenario=) must not leak approvals either
+    const cA = await a.newPage();
+    await cA.goto(BASE + '/api/health');
+    const plainA = await cA.evaluate(() => fetch('/api/recommendations?region=lucknow').then(r => r.json()));
+    const ok = await cA.evaluate(id => fetch('/api/approve-transfer', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({recommendation_id: id})}).then(r => r.status), plainA[0].id);
+    check(ok === 200, 'visitor A approves with no Conditions picked');
+    const plainB = await pageB.evaluate(() => fetch('/api/recommendations?region=lucknow').then(r => r.json()));
+    check(plainB.every(r => r.status !== 'APPROVED'), 'visitor B (no Conditions) sees none of A\'s approvals');
 
     check(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
   } finally {

@@ -129,3 +129,62 @@ def test_audit_log_first_then_desk(sandboxed):
     assert c.get("/api/audit-log?region=lucknow").status_code == 200
     res = c.get(f"/api/clinic/{FAC}/desk")
     assert res.status_code == 200 and res.json()["inventory"]
+
+
+# ---- Final-review findings ----
+
+def test_no_scenario_approval_isolated(sandboxed):
+    """C1: a visitor who never picked Conditions must not leak approvals to other visitors."""
+    a, b = _client(), _client()
+    recs = a.get("/api/recommendations?region=indore").json()
+    assert recs
+    assert a.post("/api/approve-transfer", json={"recommendation_id": recs[0]["id"]}).status_code == 200
+    b_recs = b.get("/api/recommendations?region=indore").json()
+    assert all(r["status"] != "APPROVED" for r in b_recs)
+    a_recs = a.get("/api/recommendations?region=indore").json()
+    assert any(r["status"] == "APPROVED" for r in a_recs)
+
+
+def test_shared_env_writes_refused_in_sandbox(sandboxed):
+    c = _client()
+    assert c.post("/api/environmental?region=lucknow", json={"aqi": 100}).status_code == 403
+    assert c.post("/api/environmental/live/activate?region=lucknow").status_code == 403
+
+
+def test_reads_do_not_create_sessions(sandboxed):
+    """I1: anonymous reads must not fill (and evict from) the session store."""
+    for _ in range(30):
+        c = _client()
+        c.get("/api/recommendations?region=indore&scenario=heat")
+        c.get(f"/api/clinic/{FAC}/desk")
+        c.get("/api/audit-log?region=lucknow")
+    assert len(sandbox.SESSIONS) == 0
+
+
+def test_rollback_direct_commit_non_default_region(sandboxed, monkeypatch):
+    """I2: a failed direct commit in a non-default region removes its own audit entry."""
+    c = _client()
+    recs = c.get("/api/recommendations?region=bhubaneswar&scenario=heat").json()
+    before = len(c.get("/api/audit-log?region=bhubaneswar&limit=100").json())
+
+    def boom(*a, **k):
+        raise StorageError("disk on fire")
+
+    monkeypatch.setattr(main_module.storage, "_sandbox_commit", boom)
+    res = c.post("/api/approve-transfer?scenario=heat", json={"recommendation_id": recs[0]["id"]})
+    assert res.status_code == 503
+    monkeypatch.undo()
+    monkeypatch.setattr(main_module.storage, "sandbox", True)
+    monkeypatch.setattr(main_module.audit_ledger, "sandbox", True)
+    assert len(c.get("/api/audit-log?region=bhubaneswar&limit=100").json()) == before
+
+
+def test_rate_limit_cleanup_charges_the_caller(monkeypatch):
+    """I3: pruning stale IPs must not re-bind the caller's IP."""
+    from collections import deque
+    from starlette.requests import Request
+    stale = {f"10.0.{i // 250}.{i % 250}": deque([0.0]) for i in range(10001)}
+    monkeypatch.setattr(main_module, "_llm_hits", stale)
+    scope = {"type": "http", "headers": [], "client": ("203.0.113.9", 1)}
+    main_module.enforce_llm_rate_limit(Request(scope))
+    assert len(main_module._llm_hits["203.0.113.9"]) == 1

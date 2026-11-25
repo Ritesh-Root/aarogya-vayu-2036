@@ -110,8 +110,9 @@ class StorageManager:
 
         if self.sandbox:
             reg = get_region(region or self.active_region).id
-            state = sandbox_mod.sessions().get(
-                sandbox_mod.current_session.get(), reg, lambda: self._seed_state(reg))
+            state = sandbox_mod.sessions().peek(sandbox_mod.current_session.get(), reg)
+            if state is None:
+                state = self._shared_seed(reg)  # read-only: a session is created on the visitor's first write
             with self._lock:
                 return (copy.deepcopy(state["inventory"]), copy.deepcopy(state["consignments"]),
                         copy.deepcopy(state["idempotency"]), copy.deepcopy(state["audit"]))
@@ -125,6 +126,13 @@ class StorageManager:
             inv_path, cons_path, idemp_path, audit_path, use_overlay=False)
         return {"inventory": inventory, "consignments": consignments, "idempotency": idempotency,
                 "audit": [], "ledger": []}
+
+    def _shared_seed(self, region: str) -> dict:
+        """One cached seed per region for visitors who haven't written anything yet (callers get deep copies)."""
+        cache = self.__dict__.setdefault("_seed_cache", {})
+        if region not in cache:
+            cache[region] = self._seed_state(region)
+        return cache[region]
 
     def attach_ledger(self, ledger) -> None:
         """The audit ledger to roll back when a commit fails, so it never records a change that was not saved."""

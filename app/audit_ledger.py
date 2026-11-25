@@ -19,12 +19,17 @@ class AuditLedger:
         self._load()
 
     # In sandbox mode each (visitor, region) has its own chain, starting with its own GENESIS block.
-    def _chain(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+    def _chain(self, region: Optional[str] = None, create: bool = True) -> List[Dict[str, Any]]:
         if not self.sandbox:
             return self._file_entries
         reg = get_region(region or sandbox_mod.current_region.get() or DEFAULT_REGION).id
-        seed = self.seed_fn or (lambda r: {"ledger": []})
-        state = sandbox_mod.sessions().get(sandbox_mod.current_session.get(), reg, lambda: seed(reg))
+        if not create:
+            state = sandbox_mod.sessions().peek(sandbox_mod.current_session.get(), reg)
+            if state is None:  # a visitor who hasn't written anything: a fresh chain, not stored
+                state = {"ledger": []}
+        else:
+            seed = self.seed_fn or (lambda r: {"ledger": []})
+            state = sandbox_mod.sessions().get(sandbox_mod.current_session.get(), reg, lambda: seed(reg))
         chain = state.setdefault("ledger", [])
         if not chain:
             chain.append(self._make_entry(chain, "GENESIS", {"message": f"Aarogya-Vāyu demo audit ledger initialised ({reg})"},
@@ -33,7 +38,7 @@ class AuditLedger:
 
     @property
     def entries(self) -> List[Dict[str, Any]]:
-        return self._chain()
+        return self._chain(create=False)
 
     @entries.setter
     def entries(self, value: List[Dict[str, Any]]) -> None:
@@ -41,14 +46,14 @@ class AuditLedger:
 
     def rollback_to(self, length: int, region: Optional[str] = None) -> None:
         """Drop entries recorded after `length` (their change was never saved)."""
-        chain = self._chain(region)
+        chain = self._chain(region, create=False)
         del chain[length:]
         if not self.sandbox:
             self._save()
 
     def discard_head(self, entry: Dict[str, Any]) -> None:
         """Remove `entry` if it is the newest block of any chain this request touched."""
-        chain = self._chain()
+        chain = self._chain(create=False)
         if chain and chain[-1].get("current_hash") == entry.get("current_hash"):
             chain.pop()
             if not self.sandbox:
