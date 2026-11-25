@@ -64,3 +64,34 @@ def test_tts_429_when_spent(spent):
 def test_health_ok():
     res = client.get("/api/health")
     assert res.status_code == 200 and res.json()["status"] == "ok"
+
+
+def test_gemini_uses_vertex_on_cloud_run(monkeypatch):
+    """On Cloud Run Gemini goes through Vertex AI with the service account: no API key is copied anywhere."""
+    for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("GOOGLE_GENAI_USE_VERTEXAI", "true")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "demo-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "global")
+    made = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            made.update(kwargs)
+
+    import google.genai as genai
+    monkeypatch.setattr(genai, "Client", FakeClient)
+    monkeypatch.setattr(llm, "_gemini_client", None)
+    assert llm.provider_status()["gemini"] is True
+    assert llm._gemini() is not None
+    assert made == {"vertexai": True, "project": "demo-project", "location": "global"}
+    monkeypatch.setattr(llm, "_gemini_client", None)
+
+
+def test_client_ip_on_cloud_run_ignores_spoofed_headers(monkeypatch):
+    """Google's front end appends the real client IP as the last X-Forwarded-For entry; x-real-ip is client-set there."""
+    from starlette.requests import Request
+    monkeypatch.setenv("K_SERVICE", "aarogya-vayu-2036")
+    scope = {"type": "http", "headers": [(b"x-real-ip", b"1.1.1.1"), (b"x-forwarded-for", b"9.9.9.9, 203.0.113.7")],
+             "client": ("169.254.1.1", 1234)}
+    assert main_module.client_ip(Request(scope)) == "203.0.113.7"

@@ -597,6 +597,16 @@ MAX_LLM_INPUT_CHARS = 1000
 PIPELINE_LLM_BUDGET_S = float(os.getenv("PIPELINE_LLM_BUDGET_S", "40"))
 _llm_hits: Dict[str, deque] = {}
 
+def client_ip(http_request: Request) -> str:
+    """The caller's IP for rate limiting. On Cloud Run, Google's front end appends the real client IP as the
+    last X-Forwarded-For entry (earlier entries are client-supplied); elsewhere use the socket peer."""
+    if os.environ.get("K_SERVICE"):
+        xff = [p.strip() for p in http_request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+        if xff:
+            return xff[-1]
+    return http_request.client.host if http_request.client else "unknown"
+
+
 def require_ai_budget() -> None:
     """Speech and vision have no rule-based fallback: say so plainly when today's AI budget is spent."""
     if ai_budget_remaining() <= 0:
@@ -604,13 +614,12 @@ def require_ai_budget() -> None:
 
 
 def enforce_llm_rate_limit(http_request: Request):
-    # Vercel's edge sets x-real-ip itself; a client-supplied X-Forwarded-For is not trusted
-    client_ip = http_request.headers.get("x-real-ip") or (http_request.client.host if http_request.client else "unknown")
+    ip = client_ip(http_request)
     now = time.monotonic()
     if len(_llm_hits) > 10000:
         for ip in [ip for ip, h in _llm_hits.items() if not h or now - h[-1] > 60]:
             del _llm_hits[ip]
-    hits = _llm_hits.setdefault(client_ip, deque())
+    hits = _llm_hits.setdefault(ip, deque())
     while hits and now - hits[0] > 60:
         hits.popleft()
     if len(hits) >= LLM_RATE_LIMIT_PER_MIN:

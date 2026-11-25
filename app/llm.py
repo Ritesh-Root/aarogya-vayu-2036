@@ -122,10 +122,16 @@ def _gemini_key() -> Optional[str]:
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_GENAI_API_KEY")
 
 
+def _vertex_mode() -> bool:
+    """Cloud Run: Gemini through Vertex AI with the service account's own credentials (no API key)."""
+    return os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").strip().lower() in ("1", "true", "yes")
+
+
 def provider_status() -> dict:
     """Which providers have credentials configured (booleans only, never key material)."""
     return {
-        "gemini": bool(_gemini_key()),
+        "gemini": bool(_gemini_key()) or _vertex_mode(),
+        "gemini_via": "vertex" if _vertex_mode() else ("api_key" if _gemini_key() else None),
         "claude": bool(os.getenv("ANTHROPIC_API_KEY")),
         "primary": "gemini",
         "gemini_model": GEMINI_MODELS[0],
@@ -135,6 +141,11 @@ def provider_status() -> dict:
 
 def _gemini():
     global _gemini_client
+    if _gemini_client is None and _vertex_mode():
+        from google import genai
+        _gemini_client = genai.Client(vertexai=True, project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                                      location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"))
+        return _gemini_client
     key = _gemini_key()
     if _gemini_client is None and key:
         from google import genai
