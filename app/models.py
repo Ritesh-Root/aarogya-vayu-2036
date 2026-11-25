@@ -401,7 +401,7 @@ class VoiceIntakeRequest(BaseModel):
     language: str = "en"  # "en", "hi", "hinglish"
 
 class VoiceIntakeResponse(BaseModel):
-    facility_id: str
+    facility_id: Optional[str] = None  # None when the clinic could not be identified (staff must pick it)
     facility_name: str
     medicine_id: str
     medicine_name: str

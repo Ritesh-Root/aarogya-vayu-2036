@@ -54,6 +54,9 @@ def committed_transfers(consignments: Dict[str, dict]) -> Tuple[Dict[Tuple[str, 
     return inbound, active_ids
 
 
+MIN_TRANSFER_EXPIRY_DAYS = 30
+
+
 class RedistributionOptimizer:
     def __init__(self, facilities: Dict[str, dict], max_distance_km: float = 35.0):
         self.facilities = facilities
@@ -133,15 +136,20 @@ class RedistributionOptimizer:
 
         recommendations: List[TransferRecommendation] = []
 
+        def usable(b: dict) -> bool:
+            return b.get("days_to_expiry", 365) >= MIN_TRANSFER_EXPIRY_DAYS and get_batch_available(b) > 0
+
         for med_id, assessments in med_assessments.items():
             # Identify Deficit (Critical & Warning) and Potential Donors (Surplus & Healthy)
             recipients = [a for a in assessments if a.status in ["CRITICAL", "WARNING"]]
             recipients.sort(key=lambda x: x.days_of_coverage)  # most critical first
 
-            # Eligible donors must have >= 16 days of surge-adjusted cover and >= 30 days before expiry
+            # Eligible donors must have >= 16 days of surge-adjusted cover and at least one batch with >= 30 days
+            # before expiry (one nearly-expired batch must not disqualify a donor whose other batches are good)
             donors = [
-                a for a in assessments 
-                if a.days_of_coverage >= 16.0 and a.days_to_expiry >= 30
+                a for a in assessments
+                if a.days_of_coverage >= 16.0
+                and any(usable(b) for b in facility_med_batches.get((a.facility_id, med_id), []))
             ]
             # Prioritize donors with stock expiring sooner (30-90 days) to eliminate expiration waste
             donors.sort(key=lambda x: (0 if x.expiry_risk else 1, x.days_to_expiry, -x.days_of_coverage))
@@ -156,8 +164,7 @@ class RedistributionOptimizer:
                 target_coverage_days = 14.0
                 units_needed = max(10, int((target_coverage_days - recipient.days_of_coverage) * recipient.projected_daily_rate))
 
-                # Record candidate evaluation reasons for all other facilities in corridor
-                rejections: List[Dict[str, Any]] = []
+                donors_used = 0
 
                 # Evaluate every peer facility in the regional cohort to prove no feasible redistribution donor exists
                 rejections = []
@@ -229,31 +236,30 @@ class RedistributionOptimizer:
                     if available_to_give <= 0:
                         continue
 
+                    # One consignment ships one batch, so the quantity is capped at the largest usable batch
+                    fefo_candidates = sorted((b for b in donor_batches if usable(b)), key=lambda b: b.get("days_to_expiry", 365))
+                    if not fefo_candidates:
+                        continue
+                    largest_batch = max(get_batch_available(b) for b in fefo_candidates)
+
                     # Packaging formula: Q = p * floor(max(0, Q_eligible) / p)
                     pack_size = donor_batches[0].get("pack_size", 10) or 10
-                    eligible = min(units_needed, available_to_give)
+                    eligible = min(units_needed, available_to_give, largest_batch)
                     transfer_qty = pack_size * (max(0, eligible) // pack_size)
 
                     if transfer_qty <= 0 or (donor_avail - transfer_qty) < min_donor_stock:
                         continue
 
-                    # Select FEFO candidate batch for physical consignment
-                    fefo_candidates = [
-                        b for b in donor_batches
-                        if b.get("days_to_expiry", 365) >= 30 and get_batch_available(b) > 0
-                    ]
-                    fefo_candidates.sort(key=lambda b: b.get("days_to_expiry", 365))
-                    selected_batch = next(
-                        (b for b in fefo_candidates if get_batch_available(b) >= transfer_qty),
-                        fefo_candidates[0] if fefo_candidates else donor_batches[0]
-                    )
+                    # FEFO: the earliest-expiring usable batch that holds the whole quantity
+                    selected_batch = next(b for b in fefo_candidates if get_batch_available(b) >= transfer_qty)
+                    batch_expiry_days = selected_batch.get("days_to_expiry", 365)
 
                     # Update projected coverages
                     rec_initial_days = recipient.days_of_coverage
                     rec_new_days = round(rec_initial_days + (transfer_qty / recipient.projected_daily_rate), 1)
                     donor_rem_days = round((donor.current_stock - transfer_qty) / donor.projected_daily_rate, 1)
 
-                    expiry_waste_saved = donor.expiry_risk or donor.days_to_expiry <= 90
+                    expiry_waste_saved = batch_expiry_days <= 90  # the batch actually being moved
 
                     # Rationale generation
                     med_name = recipient.medicine_name.split("(")[0].strip()
@@ -261,7 +267,7 @@ class RedistributionOptimizer:
                         f"Transfer {transfer_qty} units of {med_name} from {donor.facility_name} ({dist} km away). "
                         f"Prevents impending stockout at {recipient.facility_name} (coverage boosts from {rec_initial_days}d to {rec_new_days}d). "
                         f"Donor retains a resilient {donor_rem_days} days of surge-adjusted safety stock. "
-                        + (f"Crucially prevents batch expiration waste (expires in {donor.days_to_expiry} days)." if expiry_waste_saved else "")
+                        + (f"Crucially prevents batch expiration waste (expires in {batch_expiry_days} days)." if expiry_waste_saved else "")
                     )
 
                     rat_hi = (
@@ -283,7 +289,7 @@ class RedistributionOptimizer:
                         medicine_name=recipient.medicine_name,
                         units_to_transfer=transfer_qty,
                         batch_number=selected_batch.get("batch_number", "BAT-GEN-01"),
-                        batch_expiry_days=selected_batch.get("days_to_expiry", donor.days_to_expiry),
+                        batch_expiry_days=batch_expiry_days,
                         distance_km=dist,
                         recipient_initial_coverage_days=rec_initial_days,
                         recipient_new_coverage_days=rec_new_days,
@@ -301,6 +307,7 @@ class RedistributionOptimizer:
                         continue
 
                     recommendations.append(rec)
+                    donors_used += 1
 
                     # Deduct from donor available stock for next iterations and recalculate coverage
                     donor.current_stock -= transfer_qty
@@ -333,8 +340,10 @@ class RedistributionOptimizer:
                         shortage_severity=recipient.status,
                         unmet_units_needed=units_needed,
                         infeasibility_reason=(
-                            f"MACRO_DEFICIT_NO_SAFE_PEER_DONOR: 0 of {len(rejections)} peer facilities in corridor "
-                            f"can donate without breaching their own 14-day clinical safety reserve under acute surge."
+                            f"{donors_used} of {len(rejections)} peer facilities could donate; {units_needed} units still unmet "
+                            f"without breaching any donor's own 14-day clinical safety reserve under the surge. "
+                            f"Escalate to the district store "
+                            f"({'MACRO_DEFICIT_NO_SAFE_PEER_DONOR' if donors_used == 0 else 'MACRO_DEFICIT_PARTIAL_PEER_COVER'})."
                         ),
                         rejection_breakdown=rejections,
                         escalation_channel="DISTRICT_REPLENISHMENT_REQUISITION",

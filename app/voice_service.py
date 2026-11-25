@@ -126,7 +126,7 @@ class VoiceIntakeService:
         medicine_unknown = med_id not in self.medicines
         facility_unknown = fac_id not in self.facilities and hint_facility_id not in self.facilities
         if fac_id not in self.facilities:
-            fac_id = hint_facility_id if hint_facility_id in self.facilities else "PHC-LKO-01"
+            fac_id = hint_facility_id if hint_facility_id in self.facilities else None  # ask, never guess a clinic
         if medicine_unknown:
             med_id = "MED-001"
         reported = extracted.get("reported_stock")
@@ -144,7 +144,7 @@ class VoiceIntakeService:
         if medicine_unknown or facility_unknown:
             # Guessed IDs must go through human confirmation
             confidence = min(confidence, 0.5)
-        fac_meta = self.facilities.get(fac_id, {"name": f"Facility {fac_id}"})
+        fac_meta = self.facilities.get(fac_id, {"name": "Clinic not identified"})
         med_meta = self.medicines.get(med_id, {"name": f"Medicine {med_id}"})
         specs = MEDICINE_CLINICAL_SPECS.get(med_id, {
             "medicine_code": med_id,
@@ -158,7 +158,10 @@ class VoiceIntakeService:
         # Quality checks and anomaly flags
         anomaly_flag = None
         quality_passed = True
-        if medicine_unknown:
+        if fac_id is None:
+            quality_passed = False
+            anomaly_flag = "Clinic not identified. Which clinic is this report from? Please select it before confirming."
+        elif medicine_unknown:
             quality_passed = False
             anomaly_flag = "Medicine not in the district catalogue; defaulted to Salbutamol. Please correct it."
         elif reported is None:
@@ -170,8 +173,6 @@ class VoiceIntakeService:
         elif reported > 5000:
             quality_passed = False
             anomaly_flag = "Implausibly high stock (>5,000 units) for a rural facility. Flagged for verification."
-        elif facility_unknown:
-            anomaly_flag = "Facility not recognised; please select it."
 
         requires_confirm = (not quality_passed) or (confidence < 0.75)
 
@@ -263,9 +264,7 @@ class VoiceIntakeService:
                 if any(re.search(rf"\b{re.escape(p)}\b", lower_text) or self._transliterated_match(p, text) for p in parts):
                     matched_fac_id = fid
                     break
-        facility_found = matched_fac_id is not None
-        if not facility_found:
-            matched_fac_id = "PHC-LKO-01"
+        facility_found = matched_fac_id is not None  # None stays None: the clinic is asked for, never guessed
 
         # Match Medicine with dialect synonyms; Latin keywords must be whole words ("ors" is not in "doctors")
         med_keywords = {
@@ -320,7 +319,10 @@ class VoiceIntakeService:
         # Anomaly Detection & Quality Checks
         anomaly_flag = None
         quality_passed = True
-        if reported_stock is None:
+        if not facility_found:
+            quality_passed = False
+            anomaly_flag = "Clinic not identified. Which clinic is this report from? Please select it before confirming."
+        elif reported_stock is None:
             quality_passed = False
             anomaly_flag = "No stock count stated. Please confirm the count."
         elif reported_stock > 5000:
@@ -328,15 +330,13 @@ class VoiceIntakeService:
             anomaly_flag = "Implausibly high stock (>5,000 units) for a rural facility. Flagged for verification."
         elif not medicine_found:
             anomaly_flag = "Medicine not recognised; defaulted to Salbutamol. Please confirm."
-        elif not facility_found:
-            anomaly_flag = "Facility not recognised; please select it."
 
         # Keyword parsing is never as reliable as the LLM: cap confidence and lower it for each guess
         confidence = 0.7 - 0.2 * (not facility_found) - 0.2 * (not medicine_found)
         if not quality_passed:
             confidence = min(confidence, 0.3)
 
-        fac_meta = self.facilities.get(matched_fac_id, {"name": "PHC Kakori"})
+        fac_meta = self.facilities.get(matched_fac_id, {"name": "Clinic not identified"})
         specs = MEDICINE_CLINICAL_SPECS.get(matched_med_id, {
             "medicine_code": matched_med_id,
             "standard_name": "Salbutamol Respirator Solution (Respules 2.5mg)",
