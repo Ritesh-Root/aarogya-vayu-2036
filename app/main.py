@@ -261,6 +261,21 @@ SCENARIO_PRESETS: Dict[str, Dict[str, EnvironmentalReading]] = {
         "normal": EnvironmentalReading(aqi=75, pm25=45.0, temperature_c=26.0, humidity_pct=60.0, heatwave_alert=False,
                                        smog_episode=False, corridor="Baseline Seasonal Conditions"),
     },
+    "indore": {
+        "smog": EnvironmentalReading(aqi=267, pm25=110.0, temperature_c=16.0, humidity_pct=70.0, heatwave_alert=False,
+                                     smog_episode=True, corridor="Indore-Dhar winter inversion (Malwa plateau)"),
+        "heat": EnvironmentalReading(aqi=133, pm25=70.0, pm10=140.0, temperature_c=46.0, humidity_pct=18.0,
+                                     heatwave_alert=True, smog_episode=False,
+                                     corridor="Jhabua-Alirajpur-Barwani tribal heat belt (IMD heatwave, 46°C)"),
+        "flood": EnvironmentalReading(aqi=30, pm25=18.0, temperature_c=26.0, humidity_pct=95.0, heatwave_alert=False,
+                                      smog_episode=False, flood_alert=True, rain_24h_mm=180.0, min_temp_c=22.0,
+                                      corridor="Narmada valley, Barwani-Dhar (monsoon floods)"),
+        "cold": EnvironmentalReading(aqi=183, pm25=85.0, temperature_c=10.0, humidity_pct=60.0, heatwave_alert=False,
+                                     smog_episode=False, cold_wave_alert=True, min_temp_c=4.0,
+                                     corridor="Malwa plateau cold wave (Indore-Dhar)"),
+        "normal": EnvironmentalReading(aqi=75, pm25=45.0, temperature_c=28.0, humidity_pct=45.0, heatwave_alert=False,
+                                       smog_episode=False, corridor="Indore Division baseline"),
+    },
 }
 _last_live_reading: Dict[str, EnvironmentalReading] = {}
 _view_recs: Dict[tuple, Dict[str, TransferRecommendation]] = {}

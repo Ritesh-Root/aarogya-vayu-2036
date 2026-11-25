@@ -103,6 +103,38 @@ REGIONS: Dict[str, RegionConfig] = {
                          corridor="Lucknow-Unnao Indo-Gangetic Smog Corridor (Severe Inversion)"),
         fallback_env=dict(aqi=78, pm25=46.8, temperature_c=28.0, humidity_pct=76.0, wind_speed_kmh=12.0),
     ),
+    "indore": RegionConfig(
+        id="indore",
+        label="Indore Division, Madhya Pradesh (Jhabua · Alirajpur · Barwani · Dhar · Indore)",
+        short_name="Indore Division (MP)",
+        state="Madhya Pradesh",
+        state_code="MP",
+        districts=("Indore", "Dhar", "Jhabua", "Alirajpur", "Barwani"),
+        # Jhabua: with Alirajpur and Barwani, rated "Very High" heat-health vulnerability in MP (Das et al. 2026)
+        centroid=(22.77, 74.59),
+        centroid_district="Jhabua",
+        heatwave_threshold_c=40.0,  # IMD plains criterion
+        max_distance_km=50.0,  # MP districts are large (Indore-Jhabua ~150 km); clinics trade within ~50 km
+        default_facility_id="CHC-JBA-05",
+        facilities_file="facilities_indore.json",
+        inventory_file="inventory_indore.json",
+        consignments_file="consignments_indore.json",
+        idempotency_file="idempotency_indore.json",
+        audit_file="audit_log_indore.json",
+        corridor_name="Indore Division Tribal Heat Belt (Madhya Pradesh)",
+        corridor_title="Indore Division Health Corridor",
+        constituency="Ratlam (ST), Dhar (ST), Khargone (ST) & Indore Parliamentary Constituencies",
+        news_query_place="Jhabua OR Alirajpur OR Barwani OR Dhar OR Indore",
+        edl_label="MP State EDL",
+        map_center=(22.45, 75.05),
+        map_zoom=8,
+        polygon=((23.30, 74.30), (23.25, 76.00), (22.40, 76.10), (21.55, 75.45), (21.55, 74.60),
+                 (22.15, 74.05), (22.90, 74.10)),
+        initial_env=dict(aqi=75, pm25=45.0, temperature_c=30.0, humidity_pct=40.0,
+                         heatwave_alert=False, smog_episode=False,
+                         corridor="Indore Division Tribal Heat Belt (Madhya Pradesh)"),
+        fallback_env=dict(aqi=67, pm25=40.0, temperature_c=29.0, humidity_pct=40.0, wind_speed_kmh=10.0),
+    ),
 }
 
 _IS_PYTEST = ("pytest" in sys.modules) or ("PYTEST_CURRENT_TEST" in os.environ)

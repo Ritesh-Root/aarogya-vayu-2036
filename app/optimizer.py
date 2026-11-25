@@ -165,6 +165,7 @@ class RedistributionOptimizer:
                 units_needed = max(10, int((target_coverage_days - recipient.days_of_coverage) * recipient.projected_daily_rate))
 
                 donors_used = 0
+                rec_running_days = recipient.days_of_coverage
 
                 # Evaluate every peer facility in the regional cohort to prove no feasible redistribution donor exists
                 rejections = []
@@ -254,8 +255,8 @@ class RedistributionOptimizer:
                     selected_batch = next(b for b in fefo_candidates if get_batch_available(b) >= transfer_qty)
                     batch_expiry_days = selected_batch.get("days_to_expiry", 365)
 
-                    # Update projected coverages
-                    rec_initial_days = recipient.days_of_coverage
+                    # Update projected coverages (a second donor starts where the first one left the clinic)
+                    rec_initial_days = rec_running_days
                     rec_new_days = round(rec_initial_days + (transfer_qty / recipient.projected_daily_rate), 1)
                     donor_rem_days = round((donor.current_stock - transfer_qty) / donor.projected_daily_rate, 1)
 
@@ -308,6 +309,7 @@ class RedistributionOptimizer:
 
                     recommendations.append(rec)
                     donors_used += 1
+                    rec_running_days = rec_new_days
 
                     # Deduct from donor available stock for next iterations and recalculate coverage
                     donor.current_stock -= transfer_qty

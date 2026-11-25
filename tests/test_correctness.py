@@ -100,3 +100,14 @@ def test_voice_unknown_facility_asks(monkeypatch):
     assert res.facility_id is None
     assert res.requires_confirmation is True
     assert "which clinic" in (res.anomaly_flag or "").lower()
+
+
+def test_second_donor_starts_from_first_donors_result():
+    # Two donors top up one clinic: the second card must start where the first left off
+    inv = [_batch("PHC-T-01", "B-NEED", 0, 200, rate=30),
+           _batch("CHC-T-02", "B-R", 260, 300, rate=5),
+           _batch("CHC-T-03", "B-O", 400, 300, rate=5)]
+    recs, _ = _run(inv)
+    mine = [r for r in recs if r.recipient_facility_id == "PHC-T-01"]
+    assert len(mine) == 2
+    assert mine[1].recipient_initial_coverage_days == mine[0].recipient_new_coverage_days
