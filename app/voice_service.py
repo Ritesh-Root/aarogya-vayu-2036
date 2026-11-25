@@ -1,6 +1,7 @@
 import re
 from typing import Dict, Any, Optional, Tuple
 from pydantic import BaseModel
+from app.regions import get_region, region_of_facility
 from app.models import VoiceIntakeRequest, VoiceIntakeResponse
 from app.llm import generate_json
 
@@ -196,9 +197,11 @@ class VoiceIntakeService:
         )
 
     def _localise_specs(self, specs: Dict[str, str], fac_id: str) -> Dict[str, str]:
-        """The catalogue codes are Uttar Pradesh EDL codes; don't show them for Odisha facilities."""
-        if self.facilities.get(fac_id, {}).get("district") in ("Khordha", "Cuttack"):
-            return {**specs, "edl_category": re.sub(r"\(EDL-UP-2026:[^)]*\)", "(Odisha State EDL)", specs["edl_category"])}
+        """The catalogue codes are Uttar Pradesh EDL codes; show the facility's own state's label instead."""
+        region = region_of_facility(self.facilities, fac_id)
+        label = get_region(region).edl_label if region else ""
+        if label:
+            return {**specs, "edl_category": re.sub(r"\(EDL-UP-2026:[^)]*\)", f"({label})", specs["edl_category"])}
         return specs
 
     def _transliterated_match(self, eng_word: str, text: str) -> bool:

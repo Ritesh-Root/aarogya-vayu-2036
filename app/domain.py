@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import HTTPException
 
+from app.regions import DEFAULT_REGION, REGIONS, UnknownRegionError, get_region, region_for_district
 from app.models import (
     StockActionRequest, StockActionResult,
     TransferConsignment, DispatchConsignmentRequest,
@@ -93,22 +94,22 @@ class InventoryDomainService:
         }
 
     def _state_code(self, facility_id: str) -> str:
-        return "OD" if self.get_region_for_facility(facility_id) == "bhubaneswar" else "UP"
+        return get_region(self.get_region_for_facility(facility_id)).state_code
 
     def get_region_for_facility(self, facility_id: str) -> str:
         fac = self.facilities.get(facility_id)
-        if fac:
-            district = fac.get("district", "")
-            if district in ["Khordha", "Cuttack"]:
-                return "bhubaneswar"
-            if district in ["Lucknow", "Unnao"]:
-                return "lucknow"
-        if any(tok in str(facility_id) for tok in ["BBS", "CTC", "OD"]):
-            return "bhubaneswar"
-        return getattr(self.storage, "active_region", "lucknow")
+        region = region_for_district(fac.get("district", "")) if fac else None
+        if region is not None:
+            return region
+        # Not in the facility catalogue: the region whose inventory holds it, never a guess
+        for rid in REGIONS:
+            inventory, _, _, _ = self.storage.load_all(region=rid)
+            if any(i.get("facility_id") == facility_id for i in inventory):
+                return rid
+        raise UnknownRegionError(f"No region for facility '{facility_id}'")
 
     def _find_consignment_with_region(self, consignment_id: str) -> Tuple[str, dict]:
-        order = [getattr(self.storage, "active_region", "lucknow"), "bhubaneswar", "lucknow"]
+        order = [getattr(self.storage, "active_region", DEFAULT_REGION), *REGIONS]
         seen = set()
         for reg in order:
             if reg in seen:

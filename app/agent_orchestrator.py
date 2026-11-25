@@ -8,6 +8,7 @@ load_dotenv()
 
 from pydantic import BaseModel
 
+from app.regions import get_region, region_of_facility
 from app.models import EnvironmentalReading, StockoutRiskAssessment
 from app.surge_engine import SurgeEngine
 from app.optimizer import RedistributionOptimizer, committed_transfers
@@ -338,10 +339,11 @@ class MultiAgentResilienceOrchestrator:
         risks = self.surge_engine.assess_facility_risks(raw_inventory, env, inbound)
         recs = self.optimizer.optimize(risks, raw_inventory, active_ids)
 
-        is_bbs = any(tok in (env.corridor or "").lower() for tok in ["bhubaneswar", "cuttack", "odisha", "coastal"]) or any(r.facility_id.startswith("PHC-BBS") or r.facility_id.startswith("CHC-CTC") for r in risks)
-        corridor_title = "Bhubaneswar–Cuttack Health Corridor" if is_bbs else "Lucknow-Unnao Health Corridor"
-        state_title = "Odisha" if is_bbs else "Uttar Pradesh"
-        mp_constituency = "Bhubaneswar & Cuttack Parliamentary Constituencies" if is_bbs else "Lucknow & Mohanlalganj Parliamentary Constituencies"
+        region_ids = {region_of_facility(self.facilities, r.facility_id) for r in risks} - {None}
+        reg_cfg = get_region(next(iter(region_ids)) if len(region_ids) == 1 else None)
+        corridor_title = reg_cfg.corridor_title
+        state_title = reg_cfg.state
+        mp_constituency = reg_cfg.constituency
 
         multipliers = self.surge_engine.calculate_surge_multipliers(env)
         at_risk = sorted((r for r in risks if r.status in ["CRITICAL", "WARNING"]), key=lambda r: r.days_of_coverage)

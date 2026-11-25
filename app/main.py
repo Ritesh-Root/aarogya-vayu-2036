@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.regions import DEFAULT_REGION, REGIONS, UnknownRegionError, get_region
 from app.models import (
     Facility, Medicine, InventoryItem, EnvironmentalReading,
     StockoutRiskAssessment, TransferRecommendation, TransferConsignment,
@@ -58,25 +59,17 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = os.environ.get("DATA_DIR", str(BASE_DIR / "data"))
 STATIC_DIR = os.environ.get("STATIC_DIR", str(BASE_DIR / "static"))
-FACILITIES_LKO_PATH = os.path.join(DATA_DIR, "facilities.json")
-FACILITIES_BBS_PATH = os.path.join(DATA_DIR, "facilities_bhubaneswar.json")
 MEDICINES_PATH = os.path.join(DATA_DIR, "medicines.json")
 
-# In-memory reference metadata loaded from files
-with open(FACILITIES_LKO_PATH, "r", encoding="utf-8") as f:
-    facilities_lko: List[dict] = json.load(f)
+# In-memory reference metadata loaded from files, one facilities file per registered region
+facilities_by_region: Dict[str, List[dict]] = {}
+for _rid, _cfg in REGIONS.items():
+    with open(os.path.join(DATA_DIR, _cfg.facilities_file), "r", encoding="utf-8") as f:
+        facilities_by_region[_rid] = json.load(f)
+facilities_lko: List[dict] = facilities_by_region["lucknow"]
+facilities_bbs: List[dict] = facilities_by_region["bhubaneswar"]
 
-facilities_bbs: List[dict] = []
-if os.path.exists(FACILITIES_BBS_PATH):
-    with open(FACILITIES_BBS_PATH, "r", encoding="utf-8") as f:
-        facilities_bbs = json.load(f)
-
-facilities_by_region: Dict[str, List[dict]] = {
-    "lucknow": facilities_lko,
-    "bhubaneswar": facilities_bbs
-}
-
-facilities_dict: Dict[str, dict] = {fac["id"]: fac for fac in (facilities_lko + facilities_bbs)}
+facilities_dict: Dict[str, dict] = {fac["id"]: fac for facs in facilities_by_region.values() for fac in facs}
 
 with open(MEDICINES_PATH, "r", encoding="utf-8") as f:
     medicines_data: List[dict] = json.load(f)
@@ -93,80 +86,39 @@ optimizer = RedistributionOptimizer(facilities_dict, max_distance_km=35.0)
 voice_service = VoiceIntakeService(facilities_dict, medicines_dict)
 agent_orchestrator = MultiAgentResilienceOrchestrator(facilities_dict, medicines_dict, surge_engine, optimizer)
 
-# Regional Configuration Registry
+@app.exception_handler(UnknownRegionError)
+async def _unknown_region_handler(request: Request, exc: UnknownRegionError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+# Regional configuration for the API/UI, built from app/regions.py
 REGIONS_CONFIG = {
-    "bhubaneswar": {
-        "id": "bhubaneswar",
-        "name": "Bhubaneswar–Cuttack Coastal & Industrial Corridor (Odisha)",
-        "short_name": "Bhubaneswar (Odisha)",
-        "state": "Odisha",
-        "districts": ["Khordha", "Cuttack"],
-        "center": [20.30, 85.83],
-        "zoom": 10,
-        "default_facility_id": "PHC-BBS-01",
-        "polygon": [
-            [20.62, 85.65],
-            [20.65, 86.18],
-            [20.45, 86.22],
-            [20.10, 86.12],
-            [19.90, 85.35],
-            [20.15, 85.25],
-            [20.40, 85.60]
-        ],
-        "initial_env": EnvironmentalReading(
-            aqi=168,
-            pm25=84.5,
-            temperature_c=39.5,
-            humidity_pct=72.0,
-            heatwave_alert=True,
-            smog_episode=False,
-            corridor="Bhubaneswar–Cuttack Coastal & Industrial Corridor (Odisha)"
-        )
-    },
-    "lucknow": {
-        "id": "lucknow",
-        "name": "Lucknow-Unnao Indo-Gangetic Corridor (UP)",
-        "short_name": "Lucknow (UP)",
-        "state": "Uttar Pradesh",
-        "districts": ["Lucknow", "Unnao"],
-        "center": [26.75, 80.72],
-        "zoom": 10,
-        "default_facility_id": "PHC-LKO-01",
-        "polygon": [
-            [27.02, 80.45],
-            [27.00, 80.85],
-            [26.90, 81.16],
-            [26.72, 81.15],
-            [26.54, 80.70],
-            [26.46, 80.35],
-            [26.60, 80.22],
-            [26.85, 80.32]
-        ],
-        "initial_env": EnvironmentalReading(
-            aqi=385,
-            pm25=265.0,
-            temperature_c=17.5,
-            humidity_pct=78.0,
-            heatwave_alert=False,
-            smog_episode=True,
-            corridor="Lucknow-Unnao Indo-Gangetic Smog Corridor (Severe Inversion)"
-        )
+    rid: {
+        "id": rid,
+        "name": cfg.label,
+        "short_name": cfg.short_name,
+        "state": cfg.state,
+        "state_code": cfg.state_code,
+        "districts": list(cfg.districts),
+        "center": list(cfg.map_center),
+        "zoom": cfg.map_zoom,
+        "default_facility_id": cfg.default_facility_id,
+        "max_distance_km": cfg.max_distance_km,
+        "polygon": [list(p) for p in cfg.polygon],
+        "initial_env": EnvironmentalReading(**cfg.initial_env),
     }
+    for rid, cfg in REGIONS.items()
 }
 
 # Active region state: defaults to "lucknow" when running pytest to preserve test assertions,
 # and "bhubaneswar" in live production/demo mode.
 is_pytest = ("pytest" in sys.modules) or ("PYTEST_CURRENT_TEST" in os.environ)
-default_reg = "lucknow" if is_pytest else "bhubaneswar"
-active_region_id: str = os.environ.get("DEFAULT_REGION", default_reg).lower()
-if active_region_id not in REGIONS_CONFIG:
-    active_region_id = "bhubaneswar"
+active_region_id: str = DEFAULT_REGION
 storage.set_region(active_region_id)
 
 # Environmental Reading state per region
 current_env_by_region: Dict[str, EnvironmentalReading] = {
-    "bhubaneswar": copy.deepcopy(REGIONS_CONFIG["bhubaneswar"]["initial_env"]),
-    "lucknow": copy.deepcopy(REGIONS_CONFIG["lucknow"]["initial_env"])
+    rid: copy.deepcopy(cfg["initial_env"]) for rid, cfg in REGIONS_CONFIG.items()
 }
 current_env = current_env_by_region[active_region_id]
 
@@ -175,20 +127,14 @@ LIVE_BY_DEFAULT = os.getenv("LIVE_TELEMETRY_DEFAULT", "0" if is_pytest else "1")
 env_mode_by_region: Dict[str, str] = {reg: ("live" if LIVE_BY_DEFAULT else "scenario") for reg in REGIONS_CONFIG}
 
 # Active recommendations and unmet demands caches per region
-active_recommendations_by_region: Dict[str, Dict[str, TransferRecommendation]] = {
-    "bhubaneswar": {},
-    "lucknow": {}
-}
-active_unmet_demands_by_region: Dict[str, List[UnmetDemandReport]] = {
-    "bhubaneswar": [],
-    "lucknow": []
-}
+active_recommendations_by_region: Dict[str, Dict[str, TransferRecommendation]] = {rid: {} for rid in REGIONS}
+active_unmet_demands_by_region: Dict[str, List[UnmetDemandReport]] = {rid: [] for rid in REGIONS}
 
 # Module-level references for test & backward compatibility
 active_recommendations = active_recommendations_by_region[active_region_id]
 active_unmet_demands = active_unmet_demands_by_region[active_region_id]
 inventory_data, _, _, _ = storage.load_all(region=active_region_id)
-facilities_data = facilities_by_region.get(active_region_id, facilities_lko)
+facilities_data = facilities_by_region[active_region_id]
 
 def resolve_region(region: Any) -> str:
     """Normalise a client-supplied region; default to this instance's active region; 400 if unknown."""
@@ -202,7 +148,7 @@ def resolve_region(region: Any) -> str:
 
 def recompute_recommendations(target_region: Optional[str] = None):
     global inventory_data, active_recommendations, active_unmet_demands, current_env
-    regions_to_run = [target_region] if target_region else ["lucknow", "bhubaneswar"]
+    regions_to_run = [target_region] if target_region else list(REGIONS)
     for reg in regions_to_run:
         if reg not in REGIONS_CONFIG:
             continue
@@ -387,7 +333,7 @@ async def switch_region(payload: Dict[str, Any] = Body(...)):
         )
     active_region_id = new_reg
     storage.set_region(active_region_id)
-    facilities_data = facilities_by_region.get(active_region_id, facilities_lko)
+    facilities_data = facilities_by_region[active_region_id]
     recompute_recommendations(active_region_id)
 
     audit_ledger.record_entry(

@@ -28,7 +28,7 @@ class AuditLedger:
             # Genesis block
             self.record_entry(
                 event_type="GENESIS",
-                details={"message": "Aarogya-Vāyu audit ledger initialised (Lucknow-Unnao and Bhubaneswar-Cuttack demo regions)"},
+                details={"message": "Aarogya-Vāyu audit ledger initialised (demo regions)"},
                 approved_by="SYSTEM_INITIALIZER"
             )
 

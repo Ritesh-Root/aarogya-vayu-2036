@@ -80,7 +80,7 @@ class EnvironmentalReading(BaseModel):
     cold_wave_alert: bool = Field(default=False, description="Cold wave conditions")
     rain_24h_mm: Optional[float] = Field(default=None, description="Heaviest 24 h rainfall, yesterday to +3 days (mm)")
     min_temp_c: Optional[float] = Field(default=None, description="Lowest minimum temperature, yesterday to +3 days (°C)")
-    corridor: str = Field(default="Lucknow-Unnao Industrial & Agricultural Corridor")
+    corridor: str = Field(default="Demo corridor")
     source: Optional[str] = Field(default=None, description="Data source attribution (e.g. Open-Meteo CAMS)")
     recorded_at: Optional[str] = Field(default=None, description="Telemetry timestamp")
     # Live-only enrichments (None in scenario mode or when the feed is unavailable)

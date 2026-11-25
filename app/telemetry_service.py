@@ -6,28 +6,22 @@ import statistics
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
+from app.regions import get_region
 from app.models import EnvironmentalReading
 
 logger = logging.getLogger("aarogya_vayu.telemetry")
 
-# GPS Centroids for Regional Corridors
-COORDINATES = {
-    "bhubaneswar": {
-        "lat": 20.2961,
-        "lng": 85.8245,
-        "name": "Bhubaneswar–Cuttack Coastal & Industrial Corridor (Odisha)",
-        "district": "Khordha",
-        # IMD heatwave criterion: 37°C for coastal stations, 40°C for the plains
-        "heatwave_threshold_c": 37.0,
-    },
-    "lucknow": {
-        "lat": 26.8467,
-        "lng": 80.9462,
-        "name": "Lucknow-Unnao Indo-Gangetic Corridor (UP)",
-        "district": "Lucknow",
-        "heatwave_threshold_c": 40.0,
+def coordinates_for(region: str) -> dict:
+    """Centroid and heatwave threshold for a region, from the registry (unknown regions raise)."""
+    cfg = get_region(region)
+    return {
+        "lat": cfg.centroid[0],
+        "lng": cfg.centroid[1],
+        "name": cfg.label,
+        "district": cfg.centroid_district,
+        "heatwave_threshold_c": cfg.heatwave_threshold_c,
     }
-}
+
 
 IST = timezone(timedelta(hours=5, minutes=30))
 USER_AGENT = {"User-Agent": "AarogyaVayu/2.0 (Health Logistics Resilience)"}
@@ -101,7 +95,7 @@ class LiveTelemetryService:
 
     def fetch_live_reading(self, region: str = "bhubaneswar") -> EnvironmentalReading:
         reg = region.lower()
-        coords = COORDINATES.get(reg, COORDINATES["bhubaneswar"])
+        coords = coordinates_for(reg)
 
         # Check cache (successes for cache_ttl; failures for FAILURE_RETRY_S)
         now = time.time()
@@ -214,12 +208,13 @@ class LiveTelemetryService:
                 })
             else:
                 # Clearly labelled offline baseline; never shows as live
+                fb = get_region(reg).fallback_env
                 reading = EnvironmentalReading(
-                    aqi=68 if reg == "bhubaneswar" else 78,
-                    pm25=22.4 if reg == "bhubaneswar" else 26.8,
-                    temperature_c=27.5 if reg == "bhubaneswar" else 28.0,
-                    humidity_pct=82.0 if reg == "bhubaneswar" else 76.0,
-                    wind_speed_kmh=9.5 if reg == "bhubaneswar" else 12.0,
+                    aqi=fb["aqi"],
+                    pm25=fb["pm25"],
+                    temperature_c=fb["temperature_c"],
+                    humidity_pct=fb["humidity_pct"],
+                    wind_speed_kmh=fb["wind_speed_kmh"],
                     heatwave_alert=False,
                     smog_episode=False,
                     corridor=f"{coords['name']} (Offline Baseline)",

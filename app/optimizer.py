@@ -2,6 +2,7 @@ import math
 import uuid
 from datetime import datetime, timezone
 from typing import List, Dict, Optional, Set, Tuple, Any
+from app.regions import get_region, region_for_district
 from app.models import (
     StockoutRiskAssessment, TransferRecommendation, Facility,
     UnmetDemandReport, EDL_PRODUCT_SPEC
@@ -57,6 +58,12 @@ class RedistributionOptimizer:
     def __init__(self, facilities: Dict[str, dict], max_distance_km: float = 35.0):
         self.facilities = facilities
         self.max_distance_km = max_distance_km
+
+    def radius_for(self, facility_id: str) -> float:
+        """Donor search radius for a recipient: its region's setting (MP districts are larger)."""
+        fac = self.facilities.get(facility_id) or {}
+        region = region_for_district(fac.get("district", ""))
+        return get_region(region).max_distance_km if region else self.max_distance_km
         self.unmet_demands: List[UnmetDemandReport] = []
 
     def get_unmet_demands(self) -> List[UnmetDemandReport]:
@@ -75,8 +82,9 @@ class RedistributionOptimizer:
         if rec.units_to_transfer <= 0:
             return False, f"Non-positive transfer units: {rec.units_to_transfer}"
 
-        if rec.distance_km > self.max_distance_km:
-            return False, f"Transfer distance ({rec.distance_km} km) exceeds maximum limit ({self.max_distance_km} km)"
+        radius = self.radius_for(rec.recipient_facility_id)
+        if rec.distance_km > radius:
+            return False, f"Transfer distance ({rec.distance_km} km) exceeds maximum limit ({radius} km)"
 
         if donor_current_stock < rec.units_to_transfer:
             return False, f"Donor current stock ({donor_current_stock}) is less than transfer units ({rec.units_to_transfer})"
@@ -139,6 +147,7 @@ class RedistributionOptimizer:
             donors.sort(key=lambda x: (0 if x.expiry_risk else 1, x.days_to_expiry, -x.days_of_coverage))
 
             for recipient in recipients:
+                radius = self.radius_for(recipient.facility_id)
                 rec_fac = self.facilities.get(recipient.facility_id)
                 if not rec_fac:
                     continue
@@ -168,8 +177,8 @@ class RedistributionOptimizer:
                     cand_cov = cand_assessment.days_of_coverage if cand_assessment else round(cand_avail / cand_rate, 1)
                     cand_min_reserve = math.ceil(14.0 * cand_rate)
 
-                    if dist > self.max_distance_km:
-                        rejection_reason = f"Distance radius breach: {dist} km exceeds maximum transport radius ({self.max_distance_km} km)"
+                    if dist > radius:
+                        rejection_reason = f"Distance radius breach: {dist} km exceeds maximum transport radius ({radius} km)"
                     elif cand_cov < 16.0:
                         rejection_reason = (
                             f"Clinical safety reserve breach: Coverage {cand_cov}d < 16.0d donor threshold; "
@@ -203,7 +212,7 @@ class RedistributionOptimizer:
                         continue
 
                     dist = haversine_distance(donor_fac["lat"], donor_fac["lng"], rec_fac["lat"], rec_fac["lng"])
-                    if dist > self.max_distance_km:
+                    if dist > radius:
                         continue
 
                     donor_batches = facility_med_batches.get((donor.facility_id, med_id), [])

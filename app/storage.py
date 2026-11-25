@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
+from app.regions import DEFAULT_REGION, get_region
+
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
@@ -54,31 +56,21 @@ class StorageManager:
                 )
 
         # Region management
-        is_pytest = ("pytest" in sys.modules) or ("PYTEST_CURRENT_TEST" in os.environ)
-        default_reg = "lucknow" if is_pytest else "bhubaneswar"
-        self.active_region = os.environ.get("DEFAULT_REGION", default_reg).lower()
+        self.active_region = DEFAULT_REGION
         self._update_paths()
 
     def set_region(self, region: str):
-        self.active_region = region.lower()
+        self.active_region = get_region(region).id
         self._update_paths()
 
     def _get_region_paths(self, region: Optional[str] = None) -> Tuple[Path, Path, Path, Path]:
-        reg = (region or self.active_region).lower()
-        if reg == "bhubaneswar":
-            return (
-                self.data_dir / "inventory_bhubaneswar.json",
-                self.data_dir / "consignments_bhubaneswar.json",
-                self.data_dir / "idempotency_bhubaneswar.json",
-                self.data_dir / "audit_log_bhubaneswar.json"
-            )
-        else:
-            return (
-                self.data_dir / "inventory.json",
-                self.data_dir / "consignments.json",
-                self.data_dir / "idempotency.json",
-                self.data_dir / "audit_log.json"
-            )
+        cfg = get_region(region or self.active_region)
+        return (
+            self.data_dir / cfg.inventory_file,
+            self.data_dir / cfg.consignments_file,
+            self.data_dir / cfg.idempotency_file,
+            self.data_dir / cfg.audit_file,
+        )
 
     def _update_paths(self):
         self.inv_path, self.consignments_path, self.idempotency_path, self.audit_path = self._get_region_paths(self.active_region)

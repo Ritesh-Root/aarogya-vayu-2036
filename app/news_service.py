@@ -8,6 +8,8 @@ import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
 
+from app.regions import get_region
+
 logger = logging.getLogger("aarogya_vayu.news")
 
 class NewsArticle(BaseModel):
@@ -204,15 +206,11 @@ class NewsService:
         Dynamically fetches and categorizes 100% real live news articles
         from Google News RSS for the target regional corridor.
         """
-        reg = region.lower()
-        if reg == "bhubaneswar":
-            query = "Bhubaneswar (health OR hospital OR pollution OR weather OR heat OR dengue OR malaria OR fever OR medicine OR clinic OR doctor OR air quality)"
-            district_name = "Khordha"
-            default_fac = "PHC-BBS-01"
-        else:
-            query = "Lucknow (health OR hospital OR pollution OR weather OR heat OR dengue OR malaria OR fever OR medicine OR clinic OR doctor OR air quality)"
-            district_name = "Lucknow"
-            default_fac = "PHC-LKO-01"
+        cfg = get_region(region)
+        reg = cfg.id
+        query = f"{cfg.news_query_place} (health OR hospital OR pollution OR weather OR heat OR dengue OR malaria OR fever OR medicine OR clinic OR doctor OR air quality)"
+        district_name = cfg.centroid_district
+        default_fac = cfg.default_facility_id
 
         encoded_q = urllib.parse.quote(query)
         url = f"https://news.google.com/rss/search?q={encoded_q}&hl=en-IN&gl=IN&ceid=IN:en"
@@ -320,7 +318,7 @@ class NewsService:
         search: Optional[str] = None,
         force_refresh: bool = False
     ) -> List[NewsArticle]:
-        reg = region.lower()
+        reg = get_region(region).id
         now = time.time()
         
         cached = self._cache.get(reg)
@@ -331,7 +329,7 @@ class NewsService:
             live_articles = self.fetch_live_google_news(reg)
             
             # 2. Get curated official state health & pollution directives
-            curated_raw = CURATED_OFFICIAL_DIRECTIVES.get(reg, CURATED_OFFICIAL_DIRECTIVES["bhubaneswar"])
+            curated_raw = CURATED_OFFICIAL_DIRECTIVES.get(reg, [])
             # These are hand-written illustrative advisories, not fetched bulletins: label them so they are never mistaken for live news
             curated_articles = [
                 NewsArticle(**{
