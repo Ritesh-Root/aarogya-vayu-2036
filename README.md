@@ -3,7 +3,7 @@
 <img src="docs/banner.svg" width="100%" alt="Aarogya-Vāyu: moves medicine to rural clinics before smog or heat empties their shelves">
 
 <h3>
-  <a href="__LIVE_URL__"><b>▶&nbsp; Try the live app</b></a>
+  <a href="https://aarogya-vayu-2036-295478535981.asia-south1.run.app"><b>▶&nbsp; Try the live app</b></a>
   &nbsp;·&nbsp;
   <a href="__VIDEO_URL__">🎬&nbsp; Watch the video</a>
   &nbsp;·&nbsp;
@@ -16,7 +16,7 @@
 [![Gemini 3.8 Flash](https://img.shields.io/badge/Google%20Gemini-3.8%20Flash-4285F4?logo=googlegemini&logoColor=white)](https://ai.google.dev/)
 [![Live air data](https://img.shields.io/badge/live%20data-Open--Meteo%20%2B%20Copernicus%20CAMS-2F6B52)](https://open-meteo.com/en/docs/air-quality-api)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python%203.12-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Cloud Run](https://img.shields.io/badge/deployed-Google%20Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)](__LIVE_URL__)
+[![Cloud Run](https://img.shields.io/badge/deployed-Google%20Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)](https://aarogya-vayu-2036-295478535981.asia-south1.run.app)
 
 **BUILD 2036 · TiE Global Summit 2026, Indore · Health, Longevity & Biotechnology**<br>
 <sub>Earlier version: Top 10 finalist, Google <i>Build with AI: Code for Communities 2.0</i></sub>
@@ -117,7 +117,7 @@ flowchart LR
 
 ## ⏱️ Try it in 60 seconds
 
-Open **[the live app](__LIVE_URL__)** and:
+Open **[the live app](https://aarogya-vayu-2036-295478535981.asia-south1.run.app)** and:
 
 - [ ] Read the strip at the top: four numbered steps. Click any step to jump to it.
 - [ ] Region **Indore Div. (MP)**, then under **Conditions** pick **☀️ Heatwave (demo)**. The banner and the clinic list change.
