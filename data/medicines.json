@@ -8,7 +8,9 @@
     "base_consumption_phc": 20,
     "base_consumption_chc": 50,
     "min_buffer_days": 14,
-    "critical_threshold_days": 4
+    "critical_threshold_days": 4,
+    "unit_price_inr": null,
+    "price_source": "Not on the PMBJP (Jan Aushadhi) product list: it lists levosalbutamol respules, not salbutamol 2.5 mg"
   },
   {
     "id": "MED-002",
@@ -19,7 +21,10 @@
     "base_consumption_phc": 40,
     "base_consumption_chc": 100,
     "min_buffer_days": 14,
-    "critical_threshold_days": 5
+    "critical_threshold_days": 5,
+    "unit_price_inr": 10.98,
+    "price_source": "https://sarkariyojana.com/jan-aushadhi-products-medicines-list-with-price-drug-code",
+    "price_note": "PMBJP #312 Oral Rehydration Salts IP 20.5 g sachet (WHO formula), MRP ₹10.98 per sachet"
   },
   {
     "id": "MED-003",
@@ -30,7 +35,10 @@
     "base_consumption_phc": 15,
     "base_consumption_chc": 35,
     "min_buffer_days": 14,
-    "critical_threshold_days": 3
+    "critical_threshold_days": 3,
+    "unit_price_inr": 5.63,
+    "price_source": "https://sarkariyojana.com/jan-aushadhi-products-medicines-list-with-price-drug-code",
+    "price_note": "PMBJP #334 Dexamethasone Injection IP 4 mg/ml, 2 ml, MRP ₹5.63"
   },
   {
     "id": "MED-004",
@@ -41,7 +49,10 @@
     "base_consumption_phc": 25,
     "base_consumption_chc": 60,
     "min_buffer_days": 14,
-    "critical_threshold_days": 4
+    "critical_threshold_days": 4,
+    "unit_price_inr": 9.64,
+    "price_source": "https://sarkariyojana.com/jan-aushadhi-products-medicines-list-with-price-drug-code",
+    "price_note": "PMBJP Amoxycillin 500 mg + Potassium Clavulanate 125 mg Tablets IP, 6's, MRP ₹57.85 (₹9.64 per tablet)"
   },
   {
     "id": "MED-005",
@@ -52,7 +63,10 @@
     "base_consumption_phc": 18,
     "base_consumption_chc": 45,
     "min_buffer_days": 14,
-    "critical_threshold_days": 4
+    "critical_threshold_days": 4,
+    "unit_price_inr": 46.88,
+    "price_source": "https://sarkariyojana.com/jan-aushadhi-products-medicines-list-with-price-drug-code",
+    "price_note": "PMBJP #1742 Paracetamol Infusion IP 1 g/100 ml, MRP ₹46.88 per bottle"
   },
   {
     "id": "MED-006",
@@ -63,6 +77,8 @@
     "base_consumption_phc": 30,
     "base_consumption_chc": 80,
     "min_buffer_days": 14,
-    "critical_threshold_days": 4
+    "critical_threshold_days": 4,
+    "unit_price_inr": null,
+    "price_source": "Not on the PMBJP list at 10 mg (only cetirizine 5 mg, unpriced)"
   }
 ]

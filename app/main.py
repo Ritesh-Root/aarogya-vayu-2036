@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import sandbox as sandbox_mod
+from app.impact_value import region_value_summary
 from app.llm import ai_budget_remaining
 from app.regions import DEFAULT_REGION, REGIONS, UnknownRegionError, get_region
 from app.models import (
@@ -409,6 +410,14 @@ async def get_news(
         "live_count": sum(1 for a in articles if a.is_live),
         "articles": [a.model_dump() for a in articles]
     }
+
+@app.get("/api/impact/value")
+async def get_impact_value(region: Optional[str] = None):
+    """Rupees and clinic-days returned by this visitor's approved transfers in a region (see app/impact_value.py)."""
+    reg = resolve_region(region)
+    _, consignments, _, _ = storage.load_all(region=reg)
+    return {"region": reg, **region_value_summary(consignments, medicines_dict)}
+
 
 @app.get("/api/health")
 async def health():

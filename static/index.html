@@ -454,7 +454,7 @@
               <div class="flex items-baseline space-x-1.5 mt-1.5">
                 <span id="statAvgDist" class="text-lg sm:text-xl font-black text-clay-dark">--</span>
               </div>
-              <span class="text-xs font-semibold text-clay-muted mt-0.5">Per transfer, never over 35 km</span>
+              <span class="text-xs font-semibold text-clay-muted mt-0.5">Per transfer, within the region's limit (35 km; 50 km in MP)</span>
             </div>
           </div>
 
@@ -664,7 +664,7 @@
                 <span class="pipe-dot"><i data-lucide="route" class="w-4 h-4"></i></span>
                 <span class="min-w-0">
                   <span class="pipe-name">Transfer</span>
-                  <span class="pipe-figure">Donor within 35 km</span>
+                  <span class="pipe-figure">Donor within 35–50 km</span>
                 </span>
               </li>
               <li data-step="cmo" class="pipe-step" data-state="idle">
@@ -737,6 +737,21 @@
             <button onclick="openCmoModal()" class="bg-clay-terracotta hover:bg-clay-terracottaDark text-white text-xs sm:text-sm font-extrabold px-4 py-2.5 rounded-full shadow-clay-btn transition whitespace-nowrap" title="Ask about stock, cover or transfers in plain language">
               Ask a question
             </button>
+          </div>
+
+          <!-- What approved transfers returned (rupees panel for the district officer) -->
+          <div id="valuePanel" class="bg-white rounded-3xl p-5 border border-clay-salmon/20 shadow-sm">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-base sm:text-lg font-black text-clay-dark">What your approvals saved</h3>
+              <button type="button" onclick="document.getElementById('valueAssumptions').classList.toggle('hidden')" class="text-xs font-bold text-clay-terracotta hover:underline" title="How these figures are worked out">How we count ⓘ</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              <div class="bg-clay-inner rounded-2xl p-3"><div class="text-xs text-clay-muted font-semibold">Medicine saved from expiry</div><div id="valueSavedInr" class="text-xl font-black text-emerald-700">₹0</div></div>
+              <div class="bg-clay-inner rounded-2xl p-3"><div class="text-xs text-clay-muted font-semibold">Clinic stockout-days avoided</div><div id="valueDaysAvoided" class="text-xl font-black text-clay-dark">0</div></div>
+              <div class="bg-clay-inner rounded-2xl p-3"><div class="text-xs text-clay-muted font-semibold">Transfers approved</div><div id="valueTransfers" class="text-xl font-black text-clay-dark">0</div></div>
+              <div class="bg-clay-inner rounded-2xl p-3"><div class="text-xs text-clay-muted font-semibold">Running cost (estimate)</div><div id="valueCost" class="text-xl font-black text-clay-dark">₹1,000/mo</div></div>
+            </div>
+            <ul id="valueAssumptions" class="hidden mt-3 text-xs text-clay-muted list-disc pl-5 space-y-1"></ul>
           </div>
 
           <!-- Clinics running low -->

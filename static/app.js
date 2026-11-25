@@ -274,6 +274,8 @@ function initMap() {
   startCourierAnimationLoop();
 }
 
+function regionRadiusKm() { return currentRegion === 'indore' ? 50 : 35; }  // mirrors max_distance_km in app/regions.py
+
 const REGION_BUTTONS = { indore: 'btnRegionIdr', bhubaneswar: 'btnRegionBbs', lucknow: 'btnRegionLko' };
 function updateRegionButtons(regId) {
   const on = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm bg-clay-terracotta text-white shadow-clay-btn transition flex items-center space-x-1.5';
@@ -304,6 +306,7 @@ async function switchRegion(regionId) {
   await fetchRisks();
   await fetchRecommendations();
   await fetchAuditLog();
+  await fetchImpactValue();
   await fetchNews(regionId);
   await loadClinicDesk(currentClinicFacilityId);
 }
@@ -334,6 +337,7 @@ async function loadInitialData(adoptServerRegion = false) {
     await fetchRisks();
     await fetchRecommendations();
     await fetchAuditLog();
+    await fetchImpactValue();
     await fetchNews(currentRegion);
     await loadClinicDesk(currentClinicFacilityId);
   } catch (err) {
@@ -779,7 +783,7 @@ function renderWatchlist(searchQuery = '') {
       </div>
       <div class="text-right flex items-center space-x-2 flex-shrink-0 pl-2">
         <span class="text-sm font-black text-clay-dark whitespace-nowrap">${item.current_stock} Units</span>
-        <button onclick="${isCritical ? 'runTransferFor' : 'openFacilityDetail'}('${safeId(item.facility_id)}')" class="text-xs ${isCritical ? 'bg-clay-terracotta hover:bg-clay-terracottaDark text-white' : 'bg-clay-terracotta/10 text-clay-terracotta hover:bg-clay-terracotta hover:text-white'} px-3.5 py-1.5 rounded-full font-bold shadow-sm transition cursor-pointer whitespace-nowrap" title="${isCritical ? 'Look for a clinic within 35 km that can spare stock' : 'See this clinic\'s stock'}">
+        <button onclick="${isCritical ? 'runTransferFor' : 'openFacilityDetail'}('${safeId(item.facility_id)}')" class="text-xs ${isCritical ? 'bg-clay-terracotta hover:bg-clay-terracottaDark text-white' : 'bg-clay-terracotta/10 text-clay-terracotta hover:bg-clay-terracotta hover:text-white'} px-3.5 py-1.5 rounded-full font-bold shadow-sm transition cursor-pointer whitespace-nowrap" title="${isCritical ? 'Look for a nearby clinic that can spare stock' : 'See this clinic\'s stock'}">
           ${isCritical ? 'Find stock' : 'View'}
         </button>
       </div>
@@ -1191,6 +1195,28 @@ function regionForFacility(facId) {
 
 function closeModal() {
   document.getElementById('challanModal').classList.add('hidden');
+}
+
+async function fetchImpactValue() {
+  try {
+    const res = await fetch(`/api/impact/value?region=${encodeURIComponent(currentRegion)}`);
+    if (!res.ok) return;
+    const v = await res.json();
+    const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    set('valueSavedInr', inr(v.expiry_value_saved_inr));
+    set('valueDaysAvoided', String(v.stockout_days_avoided));
+    set('valueTransfers', String(v.transfers_approved));
+    set('valueCost', inr(v.projected_monthly_cost_inr) + '/mo');
+    const ul = document.getElementById('valueAssumptions');
+    if (ul) {
+      const notes = [...(v.assumptions || [])];
+      if ((v.unpriced_medicines || []).length) notes.push(`No sourced price, counted as ₹0: ${v.unpriced_medicines.join(', ')}.`);
+      ul.innerHTML = notes.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+    }
+  } catch (e) {
+    console.error('fetchImpactValue error:', e);
+  }
 }
 
 async function resetMyDemo() {
@@ -1690,7 +1716,7 @@ function pipelineStepSummary(data, traces) {
     transfer: rec
       ? { state: 'done', figure: `${Number(rec.units_to_transfer) || 0} units from ${rec.donor_facility_name}` }
       : logistics
-        ? { state: 'alert', figure: 'No donor within 35 km' }
+        ? { state: 'alert', figure: `No donor within ${regionRadiusKm()} km` }
         : { state: 'skipped', figure: 'Not needed' },
     cmo: rec
       ? { state: 'waiting', figure: 'Waiting for approval' }
@@ -1720,7 +1746,7 @@ function renderPipelineOutcome(data, facId, medicineName) {
       <p class="text-sm font-bold text-[#2F6B52]">Proposal for ${facName} · waiting for CMO sign-off</p>
       <h4 class="text-xl sm:text-2xl font-black text-clay-dark tracking-tight mt-1 leading-snug">Send ${Number(rec.units_to_transfer) || 0} units of ${med} from ${escapeHtml(rec.donor_facility_name)} to ${escapeHtml(rec.recipient_facility_name)}</h4>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
-        ${figure(`${Number(rec.distance_km) || 0} km`, 'Distance (limit 35 km)')}
+        ${figure(`${Number(rec.distance_km) || 0} km`, `Distance (limit ${regionRadiusKm()} km)`)}
         ${figure(`${Number(rec.recipient_initial_coverage_days)} → ${Number(rec.recipient_new_coverage_days)} d`, `Cover at ${escapeHtml(rec.recipient_facility_name)}`)}
         ${figure(`${Number(rec.donor_remaining_coverage_days)} d`, `Cover kept at ${escapeHtml(rec.donor_facility_name)} (min 14 d)`)}
         ${figure(`${Number(rec.batch_expiry_days)} d`, 'Until the batch expires')}
@@ -1731,7 +1757,7 @@ function renderPipelineOutcome(data, facId, medicineName) {
     box.className = 'rounded-2xl p-5 sm:p-6 bg-[#FBE4DE]';
     box.innerHTML = `
       <p class="text-sm font-bold text-[#8F2A19]">${facName} · escalated</p>
-      <h4 class="text-xl sm:text-2xl font-black text-clay-dark tracking-tight mt-1 leading-snug">No clinic within 35 km can spare ${med} for ${facName}</h4>
+      <h4 class="text-xl sm:text-2xl font-black text-clay-dark tracking-tight mt-1 leading-snug">No clinic within ${regionRadiusKm()} km can spare ${med} for ${facName}</h4>
       <p class="text-sm text-clay-dark mt-2">The shortfall goes to the district store as a requisition.${sub ? ` A substitute, ${escapeHtml(sub.substitute_name)}, is available if the CMO approves it.` : ''}</p>`;
   } else {
     const cover = df.days_of_coverage;

@@ -35,6 +35,11 @@ function check(cond, msg) {
     check((await page.textContent('#modalChallanId')).startsWith('CHALLAN-MP-'), 'challan id is an MP challan');
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/proj_indore_challan.png` });
 
+    await page.click('#challanModal button:has-text("Close"), #challanModal [onclick*="closeModal"]').catch(() => page.evaluate(() => closeModal()));
+    await page.waitForFunction(() => document.getElementById('valueTransfers').textContent.trim() === '1', null, { timeout: 10000 });
+    check(!/^₹0$/.test((await page.textContent('#valueSavedInr')).trim()), 'rupees panel shows a saving after the approval');
+    if (SHOTS) { await page.locator('#valuePanel').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/proj_indore_value_panel.png` }); }
+
     const logA = await page.evaluate(() => fetch('/api/audit-log?region=indore&limit=100').then(r => r.json()));
     check(logA.some(e => e.event_type.includes('APPROV') || e.event_type.includes('CONSIGNMENT')), 'visitor A audit chain records the approval');
     const verifyA = await page.evaluate(() => fetch('/api/audit-log/verify?region=indore').then(r => r.json()));
