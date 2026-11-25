@@ -917,8 +917,8 @@ def _hourly(hours_back, hours_ahead, fn):
 def test_live_telemetry_derives_forecast_peak_and_aod_anomaly(monkeypatch):
     t_w, temps = _hourly(24, 96, lambda h: 41.0 if h == 30 else 30.0)
     _, blh = _hourly(24, 96, lambda h: 120.0)
-    t_aq, aqi = _hourly(720, 96, lambda h: 260 if h == 20 else 150)
-    _, pm = _hourly(720, 96, lambda h: 60.0)
+    t_aq, aqi = _hourly(720, 96, lambda h: 260 if h == 20 else 150)  # US AQI: ignored, the bands are NAQI
+    _, pm = _hourly(720, 96, lambda h: 200.0 if h == 20 else 60.0)  # NAQI 362 at the peak, 100 otherwise
     _, aod = _hourly(720, 96, lambda h: 0.4 + (0.1 if h % 2 else -0.1))
 
     def fake_get_json(url, timeout=5):
@@ -931,13 +931,14 @@ def test_live_telemetry_derives_forecast_peak_and_aod_anomaly(monkeypatch):
     monkeypatch.setattr(telemetry_module, "_get_json", fake_get_json)
     monkeypatch.delenv("FIRMS_MAP_KEY", raising=False)
     reading = telemetry_module.LiveTelemetryService(cache_ttl_seconds=0).fetch_live_reading("lucknow")
-    assert reading.forecast_peak_aqi_72h == 260 and reading.forecast_peak_in_hours == 20
+    assert reading.aqi == 100 and reading.us_aqi == 150  # India NAQI from PM2.5 60 / PM10 80; US AQI kept for reference
+    assert reading.forecast_peak_aqi_72h == 362 and reading.forecast_peak_in_hours == 20
     assert reading.forecast_max_temp_72h == 41.0 and reading.heatwave_alert is True  # Lucknow plains threshold is 40°C
     assert reading.smog_episode is True  # forecast AQI peak >= 200
     assert abs(reading.aod_anomaly_sigma - 3.0) < 0.05  # (0.7 - 0.4) / 0.1
     assert reading.boundary_layer_m == 120.0 and reading.fire_hotspots is None
-    # The surge engine plans against the forecast peak, not just the current AQI of 150
-    assert main_module.surge_engine.calculate_surge_multipliers(reading)["AQI / Smog"] == 1.55
+    # The surge engine plans against the forecast NAQI peak (362, Very Poor), not just the current AQI of 100
+    assert main_module.surge_engine.calculate_surge_multipliers(reading)["AQI / Smog"] == 1.62
 
 
 def test_telemetry_outage_is_never_reported_as_live(monkeypatch):

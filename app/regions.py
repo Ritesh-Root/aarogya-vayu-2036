@@ -67,10 +67,10 @@ REGIONS: Dict[str, RegionConfig] = {
         map_zoom=10,
         polygon=((20.62, 85.65), (20.65, 86.18), (20.45, 86.22), (20.10, 86.12),
                  (19.90, 85.35), (20.15, 85.25), (20.40, 85.60)),
-        initial_env=dict(aqi=168, pm25=84.5, temperature_c=39.5, humidity_pct=72.0,
+        initial_env=dict(aqi=168, pm25=80.4, temperature_c=39.5, humidity_pct=72.0,
                          heatwave_alert=True, smog_episode=False,
                          corridor="Bhubaneswar–Cuttack Coastal & Industrial Corridor (Odisha)"),
-        fallback_env=dict(aqi=68, pm25=22.4, temperature_c=27.5, humidity_pct=82.0, wind_speed_kmh=9.5),
+        fallback_env=dict(aqi=68, pm25=40.8, temperature_c=27.5, humidity_pct=82.0, wind_speed_kmh=9.5),
     ),
     "lucknow": RegionConfig(
         id="lucknow",
@@ -98,10 +98,10 @@ REGIONS: Dict[str, RegionConfig] = {
         map_zoom=10,
         polygon=((27.02, 80.45), (27.00, 80.85), (26.90, 81.16), (26.72, 81.15),
                  (26.54, 80.70), (26.46, 80.35), (26.60, 80.22), (26.85, 80.32)),
-        initial_env=dict(aqi=385, pm25=265.0, temperature_c=17.5, humidity_pct=78.0,
+        initial_env=dict(aqi=385, pm25=230.5, temperature_c=17.5, humidity_pct=78.0,
                          heatwave_alert=False, smog_episode=True,
                          corridor="Lucknow-Unnao Indo-Gangetic Smog Corridor (Severe Inversion)"),
-        fallback_env=dict(aqi=78, pm25=26.8, temperature_c=28.0, humidity_pct=76.0, wind_speed_kmh=12.0),
+        fallback_env=dict(aqi=78, pm25=46.8, temperature_c=28.0, humidity_pct=76.0, wind_speed_kmh=12.0),
     ),
 }
 

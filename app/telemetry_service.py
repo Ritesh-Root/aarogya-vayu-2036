@@ -6,6 +6,7 @@ import statistics
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
+from app.naqi import naqi_from_pm
 from app.regions import get_region
 from app.models import EnvironmentalReading
 
@@ -118,7 +119,7 @@ class LiveTelemetryService:
             aq_data = _get_json(
                 f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lng}"
                 f"&current=pm10,pm2_5,us_aqi,aerosol_optical_depth"
-                f"&hourly=us_aqi,pm2_5,aerosol_optical_depth&past_days=30&forecast_days=4"
+                f"&hourly=pm2_5,pm10,aerosol_optical_depth&past_days=30&forecast_days=4"
                 f"&timezone=Asia%2FKolkata"
             )
 
@@ -130,7 +131,8 @@ class LiveTelemetryService:
             wind_kmh = float(curr_w["wind_speed_10m"])
             pm25 = float(curr_aq["pm2_5"])
             pm10 = float(curr_aq["pm10"]) if curr_aq.get("pm10") is not None else None
-            aqi = int(curr_aq["us_aqi"])
+            us_aqi = int(curr_aq["us_aqi"]) if curr_aq.get("us_aqi") is not None else None
+            aqi = naqi_from_pm(pm25, pm10)  # India NAQI: the scale the surge bands are written for
             aod = curr_aq.get("aerosol_optical_depth")
 
             now_local = datetime.now(IST).replace(minute=0, second=0, microsecond=0)
@@ -141,7 +143,13 @@ class LiveTelemetryService:
 
             _, temp_fc = _split_hourly(times_w, w_hourly.get("temperature_2m", []), now_local)
             blh_past, _ = _split_hourly(times_w, w_hourly.get("boundary_layer_height", []), now_local)
-            _, aqi_fc = _split_hourly(times_aq, aq_hourly.get("us_aqi", []), now_local)
+            pm25_series = aq_hourly.get("pm2_5", [])
+            pm10_series = aq_hourly.get("pm10", [])
+            naqi_series = [
+                None if (p25 is None and p10 is None) else naqi_from_pm(p25, p10)
+                for p25, p10 in zip(pm25_series, list(pm10_series) + [None] * (len(pm25_series) - len(pm10_series)))
+            ]
+            _, aqi_fc = _split_hourly(times_aq, naqi_series, now_local)
             _, pm25_fc = _split_hourly(times_aq, aq_hourly.get("pm2_5", []), now_local)
             aod_past, _ = _split_hourly(times_aq, aq_hourly.get("aerosol_optical_depth", []), now_local)
 
@@ -165,6 +173,7 @@ class LiveTelemetryService:
             min_temp = min(tmin_days) if tmin_days else None
             reading = EnvironmentalReading(
                 aqi=aqi,
+                us_aqi=us_aqi,
                 pm25=pm25,
                 pm10=pm10,
                 temperature_c=temp_c,

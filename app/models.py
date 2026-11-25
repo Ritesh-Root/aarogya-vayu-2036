@@ -68,7 +68,8 @@ class InventoryItem(BaseModel):
         self.available = max(0, raw)
 
 class EnvironmentalReading(BaseModel):
-    aqi: int = Field(default=385, ge=0, le=500, description="Air Quality Index")
+    aqi: int = Field(default=385, ge=0, le=500, description="India National AQI (CPCB scale, hourly estimate from PM2.5/PM10)")
+    us_aqi: Optional[int] = Field(default=None, ge=0, le=500, description="US EPA AQI from CAMS, for reference only")
     pm25: float = Field(default=245.0, ge=0, le=1500, description="PM2.5 in ug/m3")
     pm10: Optional[float] = Field(default=None, ge=0, le=2000, description="PM10 in ug/m3")
     temperature_c: float = Field(default=18.5, ge=-30, le=60, description="Ambient temperature in Celsius")
@@ -87,7 +88,7 @@ class EnvironmentalReading(BaseModel):
     aod: Optional[float] = Field(default=None, description="CAMS aerosol optical depth (550nm)")
     aod_anomaly_sigma: Optional[float] = Field(default=None, description="Current AOD vs trailing 30-day mean, in std devs")
     boundary_layer_m: Optional[float] = Field(default=None, description="Planetary boundary layer height in metres")
-    forecast_peak_aqi_72h: Optional[int] = Field(default=None, description="Peak forecast US AQI over the next 72h")
+    forecast_peak_aqi_72h: Optional[int] = Field(default=None, description="Peak forecast India NAQI over the next 72h")
     forecast_peak_pm25_72h: Optional[float] = Field(default=None, description="Peak forecast PM2.5 over the next 72h")
     forecast_peak_in_hours: Optional[int] = Field(default=None, description="Hours until the forecast AQI peak")
     forecast_max_temp_72h: Optional[float] = Field(default=None, description="Max forecast temperature over the next 72h")

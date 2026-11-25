@@ -356,7 +356,7 @@ async function fetchEnvironmental() {
       if (bannerTitle) bannerTitle.innerHTML = `<span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1"><span>Today's air: ${corridorName}</span><span class="whitespace-nowrap text-[10px] leading-none bg-emerald-500/40 text-emerald-50 border border-emerald-300/50 px-2 py-1 rounded-full uppercase tracking-wider font-extrabold">Live</span></span>`;
       const hazards = [t.flood_alert ? `very heavy rain (${t.rain_24h_mm} mm/24 h)` : '', t.cold_wave_alert ? `cold wave (min ${t.min_temp_c}°C)` : '']
         .filter(Boolean).join(' and ');
-      if (bannerDesc) bannerDesc.textContent = `AQI ${t.aqi} (${aqiCategory(t.aqi)}) · PM2.5 ${t.pm25} µg/m³ · ${t.temperature_c}°C · humidity ${t.humidity_pct ?? 'n/a'}% · wind ${t.wind_speed_kmh ?? 'n/a'} km/h${hazards ? ` · Alert: ${hazards}` : ''}. Source: Open-Meteo and Copernicus CAMS.`;
+      if (bannerDesc) bannerDesc.textContent = `AQI (India NAQI) ${t.aqi} (${aqiCategory(t.aqi)}) · PM2.5 ${t.pm25} µg/m³ · ${t.temperature_c}°C · humidity ${t.humidity_pct ?? 'n/a'}% · wind ${t.wind_speed_kmh ?? 'n/a'} km/h${hazards ? ` · Alert: ${hazards}` : ''}. Source: Open-Meteo and Copernicus CAMS.`;
     } else if (isLiveMode) {
       if (bannerTitle) bannerTitle.textContent = `${area}: live air data unavailable`;
       if (bannerDesc) bannerDesc.textContent = `Showing a stored baseline, not live data · AQI ${t.aqi} · ${t.temperature_c}°C`;
@@ -2430,15 +2430,15 @@ function setupEventListeners() {
   });
 }
 
-// US AQI categories (Open-Meteo / CAMS report the US EPA index)
+// India National AQI (CPCB) categories; the server computes NAQI from PM2.5/PM10
 function aqiCategory(aqi) {
   if (aqi == null || isNaN(aqi)) return 'n/a';
   if (aqi <= 50) return 'Good';
-  if (aqi <= 100) return 'Moderate';
-  if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
-  if (aqi <= 200) return 'Unhealthy';
-  if (aqi <= 300) return 'Very Unhealthy';
-  return 'Hazardous';
+  if (aqi <= 100) return 'Satisfactory';
+  if (aqi <= 200) return 'Moderate';
+  if (aqi <= 300) return 'Poor';
+  if (aqi <= 400) return 'Very Poor';
+  return 'Severe';
 }
 
 function highlightScenarioButton(active) {
