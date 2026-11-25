@@ -27,14 +27,26 @@ let allLogs = [];
 let activeSearchQuery = '';
 let currentLang = 'en';
 
-// Regional Corridors Configuration
-let currentRegion = 'bhubaneswar';
+// Regional Corridors Configuration. The region is this browser's own choice (remembered locally and
+// sent as ?region=), so switching never changes what another visitor sees.
+const REGION_KEY = 'aarogya.region';
+let currentRegion = 'indore';
+let regionChosenByVisitor = false;
+try {
+  const savedRegion = localStorage.getItem(REGION_KEY);
+  if (savedRegion) { currentRegion = savedRegion; regionChosenByVisitor = true; }
+} catch (e) { /* storage blocked: use the server default */ }
 
 const REGIONS = {
   bhubaneswar: {
     id: 'bhubaneswar',
     name: 'Bhubaneswar–Cuttack Health Corridor (Odisha)',
     shortName: 'Bhubaneswar (OD)',
+    stateCode: 'OD',
+    challanTitle: 'Khordha–Cuttack (Odisha)',
+    hudLabel: 'Bhubaneswar-Cuttack',
+    plate: 'e.g. OD-02-AB-1234',
+    idCodes: /BBS|CTC/,
     center: [20.30, 85.83],
     zoom: 10,
     defaultFacility: 'PHC-BBS-01',
@@ -85,9 +97,32 @@ const REGIONS = {
       }
     ]
   },
+  indore: {
+    id: 'indore',
+    name: 'Indore Division Health Corridor (MP)',
+    shortName: 'Indore Div. (MP)',
+    stateCode: 'MP',
+    challanTitle: 'Jhabua · Alirajpur · Barwani · Dhar · Indore (Madhya Pradesh)',
+    hudLabel: 'Indore Division (MP)',
+    plate: 'e.g. MP-45-AB-1234',
+    idCodes: /JBA|ARJ|BWN|DHR|IDR/,
+    center: [22.45, 75.05],
+    zoom: 8,
+    defaultFacility: 'CHC-JBA-05',
+    polygon: [[23.30, 74.30], [23.25, 76.00], [22.40, 76.10], [21.55, 75.45], [21.55, 74.60], [22.15, 74.05], [22.90, 74.10]],
+    // No sensor network is claimed for MP: the live reading is the Open-Meteo / Copernicus CAMS model grid point
+    sensors: [
+      { id: 'SNS-MP-01', name: 'Open-Meteo / CAMS grid point (Jhabua)', type: 'Modelled air quality and weather', lat: 22.77, lng: 74.59 }
+    ]
+  },
   lucknow: {
     id: 'lucknow',
     name: 'Lucknow–Unnao Health Corridor (UP)',
+    stateCode: 'UP',
+    challanTitle: 'Lucknow–Unnao (Uttar Pradesh)',
+    hudLabel: 'Lucknow-Unnao',
+    plate: 'e.g. UP-32-AB-1234',
+    idCodes: /LKO|UNN/,
     shortName: 'Lucknow (UP)',
     center: [26.75, 80.72],
     zoom: 10,
@@ -141,6 +176,8 @@ const REGIONS = {
     ]
   }
 };
+
+if (!REGIONS[currentRegion]) { currentRegion = 'indore'; regionChosenByVisitor = false; }
 
 // Clinic Daily Desk State
 let currentClinicFacilityId = "PHC-BBS-01";
@@ -237,38 +274,23 @@ function initMap() {
   startCourierAnimationLoop();
 }
 
+const REGION_BUTTONS = { indore: 'btnRegionIdr', bhubaneswar: 'btnRegionBbs', lucknow: 'btnRegionLko' };
 function updateRegionButtons(regId) {
-  const btnBbs = document.getElementById('btnRegionBbs');
-  const btnLko = document.getElementById('btnRegionLko');
+  const on = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm bg-clay-terracotta text-white shadow-clay-btn transition flex items-center space-x-1.5';
+  const off = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm text-clay-muted hover:text-clay-dark hover:bg-white transition flex items-center space-x-1.5';
+  Object.entries(REGION_BUTTONS).forEach(([rid, btnId]) => {
+    const btn = document.getElementById(btnId);
+    if (btn) btn.className = rid === regId ? on : off;
+  });
   const sub = document.getElementById('networkSubtitle');
-  if (btnBbs && btnLko) {
-    if (regId === 'bhubaneswar') {
-      btnBbs.className = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm bg-clay-terracotta text-white shadow-clay-btn transition flex items-center space-x-1.5';
-      btnLko.className = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm text-clay-muted hover:text-clay-dark hover:bg-white transition flex items-center space-x-1.5';
-      if (sub) sub.textContent = 'Bhubaneswar–Cuttack · tap a clinic to see its stock';
-    } else {
-      btnLko.className = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm bg-clay-terracotta text-white shadow-clay-btn transition flex items-center space-x-1.5';
-      btnBbs.className = 'px-3.5 py-2 rounded-full font-black text-xs sm:text-sm text-clay-muted hover:text-clay-dark hover:bg-white transition flex items-center space-x-1.5';
-      if (sub) sub.textContent = 'Lucknow–Unnao · tap a clinic to see its stock';
-    }
-  }
+  if (sub && REGIONS[regId]) sub.textContent = `${REGIONS[regId].hudLabel} · tap a clinic to see its stock`;
 }
 
 async function switchRegion(regionId) {
   if (!REGIONS[regionId]) return;
-  try {
-    const res = await fetch('/api/region/switch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ region: regionId })
-    });
-    if (!res.ok) throw new Error(await apiErrorMessage(res, 'Region switch failed'));
-  } catch (e) {
-    console.error("switchRegion error:", e);
-    alert(e.message || 'Region switch failed');
-    return;
-  }
   currentRegion = regionId;
+  regionChosenByVisitor = true;
+  try { localStorage.setItem(REGION_KEY, regionId); } catch (e) { /* storage blocked: still switch for this page */ }
   updateRegionButtons(regionId);
 
   if (map && REGIONS[regionId]) {
@@ -294,7 +316,7 @@ async function loadInitialData(adoptServerRegion = false) {
       const regRes = await fetch('/api/regions');
       if (regRes.ok) {
         const regData = await regRes.json();
-        if (regData.active_region && REGIONS[regData.active_region]) {
+        if (!regionChosenByVisitor && regData.active_region && REGIONS[regData.active_region]) {
           currentRegion = regData.active_region;
           currentClinicFacilityId = REGIONS[currentRegion].defaultFacility;
           updateRegionButtons(currentRegion);
@@ -466,7 +488,7 @@ function updateAtmosphericPlume(t) {
   // Update Glassmorphic Map HUD
   const hudCorridor = document.getElementById('hudCorridor');
   if (hudCorridor) {
-    hudCorridor.textContent = t.corridor || (currentRegion === 'bhubaneswar' ? 'Bhubaneswar-Cuttack' : 'Lucknow-Unnao');
+    hudCorridor.textContent = t.corridor || ((REGIONS[currentRegion] || {}).hudLabel || '');
   }
   const hudWind = document.getElementById('hudWind');
   if (hudWind) hudWind.textContent = (typeof t.wind_speed_kmh === 'number') ? `${t.wind_speed_kmh} km/h` : 'n/a';
@@ -1125,9 +1147,9 @@ function showChallanModal(recId, approvalData = null) {
 
   const fmtDate = (iso) => new Date(iso || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const regionId = consignment ? regionForFacility(consignment.donor_facility_id) : currentRegion;
-  const isOdisha = regionId === 'bhubaneswar';
-  document.getElementById('challanStateBadge').textContent = isOdisha ? 'OD' : 'UP';
-  document.getElementById('challanStateTitle').innerHTML = `${isOdisha ? 'Khordha–Cuttack (Odisha)' : 'Lucknow–Unnao (Uttar Pradesh)'} &bull; District Health Society`;
+  const regCfg = REGIONS[regionId] || REGIONS[currentRegion];
+  document.getElementById('challanStateBadge').textContent = regCfg.stateCode;
+  document.getElementById('challanStateTitle').innerHTML = `${escapeHtml(regCfg.challanTitle)} &bull; District Health Society`;
 
   const hashRow = document.getElementById('modalHashRow');
   if (consignment) {
@@ -1162,16 +1184,29 @@ function showChallanModal(recId, approvalData = null) {
 }
 
 function regionForFacility(facId) {
-  return /BBS|CTC|OD/.test(String(facId || '')) ? 'bhubaneswar' : 'lucknow';
+  const id = String(facId || '');
+  const hit = Object.values(REGIONS).find(r => r.idCodes && r.idCodes.test(id));
+  return hit ? hit.id : currentRegion;
 }
 
 function closeModal() {
   document.getElementById('challanModal').classList.add('hidden');
 }
 
+async function resetMyDemo() {
+  if (!confirm('Reset your copy of the demo? Your approvals, stock changes and audit entries go back to the starting data. Other visitors are not affected.')) return;
+  try {
+    const res = await fetch('/api/demo/reset', { method: 'POST' });
+    if (!res.ok) throw new Error(await apiErrorMessage(res, 'Reset failed'));
+    await loadInitialData(false);
+  } catch (e) {
+    alert(e.message || 'Reset failed');
+  }
+}
+
 async function fetchAuditLog() {
   try {
-    const res = await fetch('/api/audit-log');
+    const res = await fetch(`/api/audit-log?region=${encodeURIComponent(currentRegion)}`);
     if (!res.ok) throw new Error(`audit log HTTP ${res.status}`);
     allLogs = await res.json();
 
@@ -1207,7 +1242,7 @@ async function verifyAuditLedgerLive() {
     statusEl.innerHTML = `<span class="text-amber-600 font-bold animate-pulse">Recalculating SHA-256 hashes across entire ledger chain...</span>`;
   }
   try {
-    const res = await fetch('/api/audit-log/verify');
+    const res = await fetch(`/api/audit-log/verify?region=${encodeURIComponent(currentRegion)}`);
     if (!res.ok) throw new Error(await apiErrorMessage(res, 'Verification request failed'));
     const result = await res.json();
     if (result.valid) {
@@ -1243,6 +1278,14 @@ function showWaveformBriefly(ms = 2400) {
 
 // Sample field reports per region, so the facility always exists in the region's dropdown
 const VOICE_SAMPLES = {
+  indore: [
+    { label: '🔴 Hindi: "रानापुर: ORS 40 पैकेट..."', facility: 'CHC-JBA-05',
+      text: "CHC रानापुर से रिपोर्ट: ORS के सिर्फ 40 पैकेट बचे हैं, कल लू से 28 मरीज़ आए।" },
+    { label: '🟡 Hinglish: "Jobat: Paracetamol IV 15..."', facility: 'CHC-ARJ-02',
+      text: "CHC Jobat se report: Paracetamol IV ki sirf 15 bottle bachi hain, kal 22 bukhar aur heat stroke ke patients aaye." },
+    { label: '🟢 "Sardarpur: 30 ORS sachets..."', facility: 'CHC-DHR-02',
+      text: "This is CHC Sardarpur reporting. Only 30 ORS sachets are left and we treated 19 dehydration cases yesterday." }
+  ],
   lucknow: [
     { label: '🔴 "Kakori: 15 Salbutamol respules..."', facility: 'PHC-LKO-01',
       text: "This is PHC Kakori reporting. We only have 15 respules of Salbutamol left and treated 40 acute respiratory patients yesterday." },
@@ -1752,7 +1795,7 @@ async function runAgentPipeline(targetFacId = null, includeFieldReport = true) {
   const snippet = includeFieldReport ? (document.getElementById('voiceTranscript').value.trim() || null) : null;
   const facSelect = document.getElementById('voiceFacilitySelect');
 
-  const facId = targetFacId || (facSelect && facSelect.value ? facSelect.value : (currentClinicFacilityId || (facilities.length > 0 ? facilities[0].id : (currentRegion === 'bhubaneswar' ? 'PHC-BBS-01' : 'PHC-LKO-01'))));
+  const facId = targetFacId || (facSelect && facSelect.value ? facSelect.value : (currentClinicFacilityId || (facilities.length > 0 ? facilities[0].id : REGIONS[currentRegion].defaultFacility)));
   if (facSelect && facId) facSelect.value = facId;
   const fac = facilities.find(f => f.id === facId);
 
@@ -2622,7 +2665,7 @@ function renderClinicDesk(data) {
 }
 
 async function loadClinicDesk(facilityId) {
-  if (!facilityId) facilityId = currentClinicFacilityId || (currentRegion === 'bhubaneswar' ? "PHC-BBS-01" : "PHC-LKO-01");
+  if (!facilityId) facilityId = currentClinicFacilityId || REGIONS[currentRegion].defaultFacility;
   currentClinicFacilityId = facilityId;
   // Only the latest request may render, so a slow response for another facility can't overwrite it
   const seq = ++clinicDeskRequestSeq;
@@ -3399,7 +3442,7 @@ function openDispatchModal(consignmentId) {
   if (batchEl) batchEl.textContent = c.batch_number;
   if (vehInput) {
     vehInput.value = c.vehicle_number || '';
-    vehInput.placeholder = regionForFacility(c.donor_facility_id) === 'bhubaneswar' ? 'e.g. OD-02-AB-1234' : 'e.g. UP-32-AB-1234';
+    vehInput.placeholder = (REGIONS[regionForFacility(c.donor_facility_id)] || {}).plate || '';
   }
   if (notesInput) notesInput.value = '';
 
@@ -3495,6 +3538,7 @@ async function cancelConsignmentAction(consignmentId) {
 }
 
 async function openClinicDeskForVoiceDraft(facilityId, medicineId, reportedQty) {
+  if (!facilityId || facilityId === 'null' || facilityId === 'undefined') facilityId = null;  // clinic not identified: staff pick it
   // The desk only lists the current region's facilities, so move to the facility's region first
   const facRegion = facilityId ? regionForFacility(facilityId) : currentRegion;
   if (facRegion !== currentRegion) {
@@ -3819,7 +3863,7 @@ async function fetchNews(region = null, forceRefresh = false) {
     // Update region badge in news modal
     const badge = document.getElementById('newsRegionBadge');
     if (badge) {
-      badge.textContent = (reg === 'bhubaneswar' ? 'Bhubaneswar–Cuttack (OD)' : 'Lucknow–Unnao (UP)');
+      badge.textContent = (REGIONS[reg] || {}).shortName || reg;
     }
 
     renderNewsList();

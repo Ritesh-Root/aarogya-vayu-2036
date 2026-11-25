@@ -305,13 +305,20 @@
             <span>📍</span>
             <span class="hidden md:inline">Region:</span>
           </span>
-          <button id="btnRegionBbs" onclick="switchRegion('bhubaneswar')" class="px-3.5 py-2 rounded-full font-black text-xs sm:text-sm bg-clay-terracotta text-white shadow-clay-btn transition flex items-center space-x-1.5">
+          <button id="btnRegionIdr" onclick="switchRegion('indore')" class="px-3.5 py-2 rounded-full font-black text-xs sm:text-sm bg-clay-terracotta text-white shadow-clay-btn transition flex items-center space-x-1.5">
+            <span>Indore Div. (MP)</span>
+          </button>
+          <button id="btnRegionBbs" onclick="switchRegion('bhubaneswar')" class="px-3.5 py-2 rounded-full font-black text-xs sm:text-sm text-clay-muted hover:text-clay-dark hover:bg-white transition flex items-center space-x-1.5">
             <span>Bhubaneswar (OD)</span>
           </button>
           <button id="btnRegionLko" onclick="switchRegion('lucknow')" class="px-3.5 py-2 rounded-full font-black text-xs sm:text-sm text-clay-muted hover:text-clay-dark hover:bg-white transition flex items-center space-x-1.5">
             <span>Lucknow (UP)</span>
           </button>
         </div>
+
+        <button id="btnResetDemo" onclick="resetMyDemo()" title="Reset your own copy of the demo; other visitors are not affected" class="px-3 py-2 rounded-full font-bold text-xs text-clay-muted hover:text-clay-dark hover:bg-white border border-clay-salmon/30 transition">
+          ↺ Reset my demo
+        </button>
 
         <!-- Atmospheric Scenario Switcher (Warm Pill Buttons) -->
         <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 bg-clay-inner p-1.5 rounded-3xl sm:rounded-full border border-clay-salmon/20 w-full sm:w-auto max-w-full">
@@ -379,11 +386,11 @@
             <ol class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 flex-1">
               <li><button type="button" onclick="jumpToStep('stepAir')" class="how-step"><span class="how-num">1</span><span><strong>Read the weather</strong><span>Smog, heat, heavy rain and cold raise expected demand</span></span></button></li>
               <li><button type="button" onclick="jumpToStep('stepReport')" class="how-step"><span class="how-num">2</span><span><strong>Clinics report stock</strong><span>By voice or text, in Hindi, Odia or English</span></span></button></li>
-              <li><button type="button" onclick="jumpToStep('agentPipeline')" class="how-step"><span class="how-num">3</span><span><strong>Find a transfer</strong><span>From a clinic within 35 km that has spare</span></span></button></li>
+              <li><button type="button" onclick="jumpToStep('agentPipeline')" class="how-step"><span class="how-num">3</span><span><strong>Find a transfer</strong><span>From a nearby clinic (35–50 km) that has spare</span></span></button></li>
               <li><button type="button" onclick="jumpToStep('stepApprove')" class="how-step"><span class="how-num">4</span><span><strong>Doctor approves</strong><span>Nothing moves without sign-off</span></span></button></li>
             </ol>
           </div>
-          <p class="text-xs sm:text-sm text-clay-muted mt-4 leading-relaxed"><strong class="text-clay-dark">Try it:</strong> pick <strong class="text-clay-dark">🌫️ Smog (demo)</strong> above, then press <strong class="text-clay-dark">Find stock</strong> next to a clinic under <em>Clinics running low</em>, and approve the transfer it proposes.</p>
+          <p class="text-xs sm:text-sm text-clay-muted mt-4 leading-relaxed"><strong class="text-clay-dark">Try it:</strong> pick <strong class="text-clay-dark">☀️ Heatwave (demo)</strong> (or Smog) above, then press <strong class="text-clay-dark">Find stock</strong> next to a clinic under <em>Clinics running low</em>, and approve the transfer it proposes.</p>
         </section>
 
         <!-- Main Master Grid: Left Canvas (Hero + Cards + Map) & Right Panel (CMO + Actions) -->
@@ -406,7 +413,7 @@
                 <div>
                   <div class="flex items-start gap-2.5">
                     <span class="step-chip step-chip-light" aria-label="Step 1">1</span>
-                    <h2 id="bannerTitle" class="text-xl sm:text-2xl font-black tracking-tight">Bhubaneswar–Cuttack Health Corridor Active</h2>
+                    <h2 id="bannerTitle" class="text-xl sm:text-2xl font-black tracking-tight">Health Corridor Active</h2>
                   </div>
                   <p id="bannerDesc" class="text-xs sm:text-sm text-white/95 mt-1.5 font-medium leading-relaxed sm:pl-[2.375rem]">
                     Loading today's air quality…
@@ -462,7 +469,7 @@
                     <span>Clinic map</span>
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   </h4>
-                  <span id="networkSubtitle" class="text-xs font-semibold text-clay-muted">Bhubaneswar–Cuttack · tap a clinic to see its stock</span>
+                  <span id="networkSubtitle" class="text-xs font-semibold text-clay-muted">Tap a clinic to see its stock</span>
                 </div>
                 <!-- Layer Filter Chips -->
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -489,7 +496,7 @@
                   </div>
                   <div class="text-slate-700 hidden sm:flex justify-between font-medium">
                     <span>Area:</span>
-                    <strong id="hudCorridor" class="text-clay-dark font-extrabold">Lucknow-Unnao</strong>
+                    <strong id="hudCorridor" class="text-clay-dark font-extrabold">…</strong>
                   </div>
                   <div class="text-slate-700 flex justify-between font-medium">
                     <span title="Height of the air layer that pollution mixes into; low means smog is trapped near the ground">Smog ceiling:</span>
@@ -544,7 +551,7 @@
                   <select id="voiceFacilitySelect" class="w-full bg-white border border-clay-salmon/30 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-clay-dark focus:outline-none focus:ring-2 focus:ring-clay-salmon font-semibold shadow-sm">
                     <option value="">Clinic: detect it from the report</option>
                   </select>
-                  <textarea id="voiceTranscript" rows="3" class="w-full bg-white border border-clay-salmon/30 rounded-2xl p-3.5 text-xs sm:text-sm text-clay-dark placeholder-clay-muted focus:outline-none focus:ring-2 focus:ring-clay-salmon font-medium" placeholder="e.g. This is PHC Kakori reporting. We only have 15 respules of Salbutamol left and treated 40 acute respiratory patients yesterday."></textarea>
+                  <textarea id="voiceTranscript" rows="3" class="w-full bg-white border border-clay-salmon/30 rounded-2xl p-3.5 text-xs sm:text-sm text-clay-dark placeholder-clay-muted focus:outline-none focus:ring-2 focus:ring-clay-salmon font-medium" placeholder="e.g. CHC Ranapur reporting: only 40 ORS packets are left and 28 heat patients came in yesterday."></textarea>
 
                   <!-- Sample Buttons -->
                   <div class="flex flex-wrap gap-2">
@@ -594,7 +601,7 @@
                   <span id="voiceConfidence" class="text-clay-muted text-xs font-bold">98% Confidence</span>
                 </div>
                 <div class="text-clay-dark flex justify-between font-semibold">
-                  <span>Facility: <strong id="voiceFacName" class="text-clay-dark font-black">PHC Kakori</strong></span>
+                  <span>Facility: <strong id="voiceFacName" class="text-clay-dark font-black">—</strong></span>
                   <span>Medicine: <strong id="voiceMedName" class="text-clay-terracotta font-black">Salbutamol 2.5mg</strong></span>
                 </div>
                 <div class="bg-clay-inner/70 p-2 rounded-xl border border-clay-salmon/15 text-xs text-clay-dark space-y-0.5 font-medium">
@@ -739,7 +746,7 @@
                 <h3 class="text-base sm:text-lg font-black text-clay-dark">Clinics running low</h3>
                 <span class="text-xs text-clay-terracotta font-extrabold whitespace-nowrap">Under 4 days left</span>
               </div>
-              <p class="text-xs sm:text-sm text-clay-muted mt-1 leading-relaxed"><strong class="text-clay-dark">Find stock</strong> looks for a clinic within 35 km that can spare some.</p>
+              <p class="text-xs sm:text-sm text-clay-muted mt-1 leading-relaxed"><strong class="text-clay-dark">Find stock</strong> looks for a clinic within 35 km (50 km in the Indore division) that can spare some.</p>
             </div>
 
             <div id="criticalWatchlist" class="space-y-3">
@@ -993,7 +1000,7 @@
           </div>
           <div>
             <span class="text-clay-muted block text-xs uppercase font-extrabold tracking-wider">Recipient (Deficit)</span>
-            <strong id="modalRecipient" class="text-sm sm:text-base font-black text-red-600">PHC Kakori</strong>
+            <strong id="modalRecipient" class="text-sm sm:text-base font-black text-red-600">—</strong>
           </div>
         </div>
         <div class="pt-2.5 border-t border-clay-salmon/20">
@@ -1039,7 +1046,7 @@
             <div class="flex items-center space-x-2">
               <h3 class="text-lg sm:text-xl font-black text-clay-dark">Health &amp; climate news</h3>
               <span id="newsRegionBadge" class="bg-clay-terracotta/10 text-clay-terracotta text-xs font-black px-2.5 py-0.5 rounded-full border border-clay-salmon/20">
-                Bhubaneswar–Cuttack (OD)
+                
               </span>
             </div>
             <p class="text-xs sm:text-sm text-clay-muted font-medium">
@@ -1194,7 +1201,7 @@
         <ol class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <li class="p-4 bg-clay-inner rounded-2xl border border-clay-salmon/20"><strong class="text-clay-terracotta">1. Read the weather.</strong> Live air quality, heat, rainfall and minimum temperature (Open-Meteo, Copernicus CAMS) raise the expected demand for each medicine: smog for breathing medicines, heat and floods for ORS and fever medicine, cold for antibiotics. The <em>Conditions</em> buttons switch to a smog, heatwave, flood, cold-wave or normal demo, for your browser only.</li>
           <li class="p-4 bg-clay-inner rounded-2xl border border-clay-salmon/20"><strong class="text-clay-terracotta">2. Clinics report stock.</strong> In <em>Report stock by voice</em>, try a sample or press the mic. Gemini picks out the clinic, medicine and count.</li>
-          <li class="p-4 bg-clay-inner rounded-2xl border border-clay-salmon/20"><strong class="text-clay-terracotta">3. Find a transfer.</strong> Press <em>Find stock</em> next to a clinic, or <em>Run Agent Pipeline</em>. Gemini calls the transfer solver; the solver picks the donor and quantity (within 35 km, keeping 14 days at the donor, oldest batch first).</li>
+          <li class="p-4 bg-clay-inner rounded-2xl border border-clay-salmon/20"><strong class="text-clay-terracotta">3. Find a transfer.</strong> Press <em>Find stock</em> next to a clinic, or <em>Run Agent Pipeline</em>. Gemini calls the transfer solver; the solver picks the donor and quantity (within 35 km, or 50 km in the Indore division; keeping 14 days at the donor; oldest batch first).</li>
           <li class="p-4 bg-clay-inner rounded-2xl border border-clay-salmon/20"><strong class="text-clay-terracotta">4. Doctor approves.</strong> Under <em>Waiting for your approval</em>, press <em>Approve &amp; Reserve Stock</em>. A dispatch note is issued and the step is written to the audit log.</li>
         </ol>
 
@@ -1227,10 +1234,10 @@
           </div>
           <div>
             <div class="flex items-center space-x-2.5">
-              <h3 id="facDetailName" class="text-xl sm:text-2xl font-black text-clay-dark">PHC Kakori</h3>
+              <h3 id="facDetailName" class="text-xl sm:text-2xl font-black text-clay-dark">—</h3>
               <span id="facDetailBadge" class="text-xs bg-red-100 text-red-700 font-black px-2.5 py-1 rounded-full border border-red-200">CRITICAL STOCKOUT RISK</span>
             </div>
-            <p id="facDetailSub" class="text-xs sm:text-sm text-clay-muted font-semibold">Lucknow District &bull; Dr. Ananya Srivastava (Medical Officer)</p>
+            <p id="facDetailSub" class="text-xs sm:text-sm text-clay-muted font-semibold"></p>
           </div>
         </div>
         <button onclick="closeFacilityDetail()" class="text-slate-400 hover:text-slate-700 text-3xl font-bold leading-none transition cursor-pointer">&times;</button>
@@ -1508,7 +1515,7 @@
           <span class="text-amber-700 font-black"><strong id="dispatchUnits">90</strong> units to pack</span>
         </div>
         <div class="flex justify-between text-clay-muted font-mono">
-          <span>Destination: <strong id="dispatchRecipientName" class="text-clay-dark">PHC Kakori</strong></span>
+          <span>Destination: <strong id="dispatchRecipientName" class="text-clay-dark">—</strong></span>
           <span>Batch: <strong id="dispatchBatchNum" class="text-clay-dark">BAT-01</strong></span>
         </div>
       </div>
@@ -1694,7 +1701,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
             <span class="text-clay-muted uppercase text-[10px] font-bold block">Facility & Medicine</span>
-            <span class="text-sm font-black text-clay-dark" id="registerFacilityName">PHC Kakori</span>
+            <span class="text-sm font-black text-clay-dark" id="registerFacilityName">—</span>
             <span class="text-clay-muted mx-1.5">&bull;</span>
             <span class="text-sm font-black text-clay-terracotta" id="registerMedicineName">Amoxicillin 500mg</span>
           </div>
