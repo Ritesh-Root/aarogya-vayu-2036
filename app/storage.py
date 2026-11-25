@@ -7,6 +7,9 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
+import copy
+
+from app import sandbox as sandbox_mod
 from app.regions import DEFAULT_REGION, get_region
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -31,7 +34,7 @@ class StorageManager:
     - STORAGE_BACKEND=demo (default): Local atomic JSON persistence with in-process lock.
     - STORAGE_BACKEND=firestore: GCP Cloud Firestore atomic transactions with NO silent fallback.
     """
-    def __init__(self, base_dir: Optional[Path] = None):
+    def __init__(self, base_dir: Optional[Path] = None, sandbox: Optional[bool] = None):
         if base_dir is None:
             base_dir = Path(__file__).resolve().parent.parent
         self.base_dir = base_dir
@@ -40,6 +43,9 @@ class StorageManager:
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
         self.backend = os.environ.get("STORAGE_BACKEND", "demo").strip().lower()
+        # Per-visitor in-memory state (see app/sandbox.py); never touches disk
+        self.sandbox = sandbox_mod.SANDBOX_ENABLED if sandbox is None else sandbox
+        self.ledger = None
         self._lock = threading.RLock()
         self.lock_path = self.tmp_dir / ".storage.lock"
 
@@ -102,10 +108,51 @@ class StorageManager:
             except Exception as e:
                 raise StorageError(f"Firestore load failed: {e}")
 
-        # Demo / Local Mode
+        if self.sandbox:
+            reg = get_region(region or self.active_region).id
+            state = sandbox_mod.sessions().get(
+                sandbox_mod.current_session.get(), reg, lambda: self._seed_state(reg))
+            with self._lock:
+                return (copy.deepcopy(state["inventory"]), copy.deepcopy(state["consignments"]),
+                        copy.deepcopy(state["idempotency"]), copy.deepcopy(state["audit"]))
+
+        return self._load_from_files(inv_path, cons_path, idemp_path, audit_path)
+
+    def _seed_state(self, region: str) -> dict:
+        """A fresh copy of the bundled demo files for one region (the /tmp overlay is ignored)."""
+        inv_path, cons_path, idemp_path, audit_path = self._get_region_paths(region)
+        inventory, consignments, idempotency, _ = self._load_from_files(
+            inv_path, cons_path, idemp_path, audit_path, use_overlay=False)
+        return {"inventory": inventory, "consignments": consignments, "idempotency": idempotency,
+                "audit": [], "ledger": []}
+
+    def attach_ledger(self, ledger) -> None:
+        """The audit ledger to roll back when a commit fails, so it never records a change that was not saved."""
+        self.ledger = ledger
+        ledger.seed_fn = self._seed_state
+
+    def _sandbox_commit(self, region: str, inventory, consignments, idempotency, audit_entry) -> None:
+        state = sandbox_mod.sessions().get(sandbox_mod.current_session.get(), region, lambda: self._seed_state(region))
+        with self._lock:
+            state["inventory"] = copy.deepcopy(inventory)
+            state["consignments"] = copy.deepcopy(consignments)
+            state["idempotency"] = copy.deepcopy(idempotency)
+            if audit_entry:
+                state["audit"].append(copy.deepcopy(audit_entry))
+
+    def _load_from_files(self, inv_path, cons_path, idemp_path, audit_path, use_overlay: bool = True):
+        def read(path, default):
+            if use_overlay:
+                return self._read_json_file(path, fallback_path=self.tmp_dir / path.name, default=default)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (OSError, ValueError):
+                return default
+
         with self._lock:
             # 1. Inventory
-            inventory = self._read_json_file(inv_path, fallback_path=self.tmp_dir / inv_path.name, default=[])
+            inventory = read(inv_path, [])
             # Normalize inventory items to ensure segregated stock keys exist
             for item in inventory:
                 if "on_hand" not in item:
@@ -128,13 +175,13 @@ class StorageManager:
                 refresh_days_to_expiry(item)
 
             # 2. Consignments
-            consignments = self._read_json_file(cons_path, fallback_path=self.tmp_dir / cons_path.name, default={})
+            consignments = read(cons_path, {})
 
             # 3. Idempotency Cache
-            idempotency = self._read_json_file(idemp_path, fallback_path=self.tmp_dir / idemp_path.name, default={})
+            idempotency = read(idemp_path, {})
 
             # 4. Audit Log
-            audit_log = self._read_json_file(audit_path, fallback_path=self.tmp_dir / audit_path.name, default=[])
+            audit_log = read(audit_path, [])
 
             return inventory, consignments, idempotency, audit_log
 
@@ -181,6 +228,17 @@ class StorageManager:
             except Exception as e:
                 raise StorageError(f"Atomic commit failed on Firestore: {e}. No mutations applied.")
 
+        if self.sandbox:
+            for item in inventory:
+                item["current_stock"] = item.get("on_hand", 0)
+                item["available"] = max(0, item.get("on_hand", 0) - item.get("reserved", 0) - item.get("quarantined", 0))
+            try:
+                self._sandbox_commit(get_region(region or self.active_region).id, inventory, consignments, idempotency, audit_entry)
+            except Exception as e:
+                self._rollback_entry(audit_entry)
+                raise StorageError(f"Atomic commit failed on sandbox storage: {e}")
+            return
+
         # Demo / Local Mode (Atomic write via replace)
         with self._lock:
             try:
@@ -202,7 +260,12 @@ class StorageManager:
                     self._atomic_write_json(audit_path, audit_list, fallback_path=self.tmp_dir / audit_path.name)
 
             except Exception as e:
+                self._rollback_entry(audit_entry)
                 raise StorageError(f"Atomic commit failed on local storage: {e}")
+
+    def _rollback_entry(self, audit_entry: Optional[dict]) -> None:
+        if audit_entry and self.ledger is not None:
+            self.ledger.discard_head(audit_entry)
 
     def _acquire_process_lock(self):
         try:
@@ -271,12 +334,19 @@ class StorageManager:
         # Demo Mode (Thread-Safe and Process-Safe Transactional Execution)
         with self._lock:
             p_fd = self._acquire_process_lock()
+            token = sandbox_mod.current_region.set(get_region(region or self.active_region).id)
+            mark = len(self.ledger.entries) if self.ledger is not None else None
             try:
                 inv, cons, idem, audit = self.load_all(region=region)
                 result, new_inv, new_cons, new_idem, new_audit = mutation_fn(inv, cons, idem, audit)
                 self.commit_transaction(new_inv, new_cons, new_idem, new_audit, region=region)
                 return result
+            except Exception:
+                if mark is not None:
+                    self.ledger.rollback_to(mark)
+                raise
             finally:
+                sandbox_mod.current_region.reset(token)
                 self._release_process_lock(p_fd)
 
     def _read_json_file(self, primary_path: Path, fallback_path: Path, default: Any) -> Any:

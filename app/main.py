@@ -1,4 +1,5 @@
 import os
+import uuid
 import logging
 import sys
 import asyncio
@@ -16,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import sandbox as sandbox_mod
 from app.regions import DEFAULT_REGION, REGIONS, UnknownRegionError, get_region
 from app.models import (
     Facility, Medicine, InventoryItem, EnvironmentalReading,
@@ -78,6 +80,25 @@ medicines_dict: Dict[str, dict] = {med["id"]: med for med in medicines_data}
 # Storage boundary and audit ledger initialization
 storage = StorageManager(base_dir=BASE_DIR)
 audit_ledger = AuditLedger()
+storage.attach_ledger(audit_ledger)
+
+
+@app.middleware("http")
+async def _visitor_session(request: Request, call_next):
+    """Gives every browser its own sandbox id (cookie) and scopes the request to it."""
+    sid = request.cookies.get(sandbox_mod.SESSION_COOKIE)
+    fresh = not sandbox_mod.valid_session_id(sid)
+    if fresh:
+        sid = uuid.uuid4().hex
+    token = sandbox_mod.current_session.set(sid)
+    try:
+        response = await call_next(request)
+    finally:
+        sandbox_mod.current_session.reset(token)
+    if fresh:
+        response.set_cookie(sandbox_mod.SESSION_COOKIE, sid, max_age=sandbox_mod.SANDBOX_TTL_S, httponly=True,
+                            samesite="lax", secure=request.url.scheme == "https")
+    return response
 
 # Centralized domain service
 domain_service = InventoryDomainService(storage, audit_ledger, facilities_dict, medicines_dict)
@@ -85,6 +106,12 @@ surge_engine = SurgeEngine(facilities_dict, medicines_dict)
 optimizer = RedistributionOptimizer(facilities_dict, max_distance_km=35.0)
 voice_service = VoiceIntakeService(facilities_dict, medicines_dict)
 agent_orchestrator = MultiAgentResilienceOrchestrator(facilities_dict, medicines_dict, surge_engine, optimizer)
+
+@app.exception_handler(StorageError)
+async def _storage_error_handler(request: Request, exc: StorageError):
+    logger.error("Storage commit failed: %s", exc)
+    return JSONResponse(status_code=503, content={"detail": "Could not save this change; nothing was changed. Please retry."})
+
 
 @app.exception_handler(UnknownRegionError)
 async def _unknown_region_handler(request: Request, exc: UnknownRegionError):
@@ -278,13 +305,17 @@ def view_recommendations(reg: str, scenario: Optional[str], env: EnvironmentalRe
         snap = c.get("recommendation_snapshot")
         if snap and c.get("status") in ("APPROVED_RESERVED", "DISPATCHED") and c.get("recommendation_id") not in closed:
             view[snap["id"]] = TransferRecommendation(**snap)
-    for cached in [active_recommendations_by_region[reg]] + [v for (r, _), v in _view_recs.items() if r == reg]:
+    sid = sandbox_mod.current_session.get()
+    shared = [] if storage.sandbox else [active_recommendations_by_region[reg]]  # shared caches would leak approvals between visitors
+    for cached in shared + [v for (s_id, r, _), v in _view_recs.items() if r == reg and s_id == sid]:
         for rid, r in cached.items():
             if r.status == "APPROVED" and rid not in closed:
                 view.setdefault(rid, r)
     for r in recs:
         view.setdefault(r.id, r)
-    _view_recs[(reg, scenario)] = view
+    _view_recs[(sid, reg, scenario)] = view
+    if len(_view_recs) > 4 * sandbox_mod.SANDBOX_MAX_SESSIONS:
+        _view_recs.pop(next(iter(_view_recs)))
     return view, optimizer.get_unmet_demands()
 
 
@@ -321,35 +352,22 @@ async def get_regions():
 
 @app.post("/api/region/switch")
 async def switch_region(payload: Dict[str, Any] = Body(...)):
-    """
-    Switches active operational corridor in memory.
-    """
-    global active_region_id, current_env, active_recommendations, active_unmet_demands, inventory_data, facilities_data
+    """Validates a region choice. The choice itself lives in the visitor's browser (sent as ?region=),
+    so switching never changes another visitor's view or writes to the audit log."""
     new_reg = str(payload.get("region") or "").strip().lower()
     if new_reg not in REGIONS_CONFIG:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid region '{new_reg}'. Available options: {list(REGIONS_CONFIG.keys())}"
         )
-    active_region_id = new_reg
-    storage.set_region(active_region_id)
-    facilities_data = facilities_by_region[active_region_id]
-    recompute_recommendations(active_region_id)
+    return {"status": "switched", "active_region": new_reg, "region_meta": REGIONS_CONFIG[new_reg]}
 
-    audit_ledger.record_entry(
-        event_type="CORRIDOR_REGION_SWITCHED",
-        details={
-            "active_region": active_region_id,
-            "corridor": REGIONS_CONFIG[active_region_id]["name"]
-        },
-        approved_by="COMMAND_CENTER_DISPATCHER"
-    )
 
-    return {
-        "status": "switched",
-        "active_region": active_region_id,
-        "region_meta": REGIONS_CONFIG[active_region_id]
-    }
+@app.post("/api/demo/reset")
+async def reset_demo():
+    """Resets this visitor's sandbox (stock, transfers, audit chain) to the seed data. Other visitors are unaffected."""
+    sandbox_mod.sessions().reset(sandbox_mod.current_session.get())
+    return {"status": "reset", "sandbox": storage.sandbox}
 
 @app.get("/api/facilities")
 async def get_facilities(region: Optional[str] = None):
@@ -455,6 +473,7 @@ async def activate_live_environmental(region: Optional[str] = None):
     reading = current_env_by_region.get(reg, current_env)
     live_ok = is_live_reading(reading)
     audit_ledger.record_entry(
+        region=reg,
         event_type="LIVE_CAMS_TELEMETRY_ACTIVATED" if live_ok else "LIVE_TELEMETRY_UNAVAILABLE",
         details={
             "region": reg,
@@ -496,6 +515,7 @@ async def update_environmental(env: EnvironmentalReading, region: Optional[str] 
         current_env = env
     recompute_recommendations(reg)
     audit_ledger.record_entry(
+        region=reg,
         event_type="ENVIRONMENTAL_TELEMETRY_UPDATE",
         details={
             "region": reg,
@@ -610,6 +630,7 @@ async def process_voice_intake(request: VoiceIntakeRequest, http_request: Reques
     result.requires_confirmation = True
 
     audit_ledger.record_entry(
+        region=(domain_service.get_region_for_facility(result.facility_id) if result.facility_id in facilities_dict else None),
         event_type="FRONTLINE_VOICE_DRAFT_LOGGED",
         details={
             "facility_id": result.facility_id,
@@ -666,6 +687,7 @@ async def approve_transfer(req: ApprovalRequest, scenario: Optional[str] = None)
     if planning_env is not None and not already_approved:
         # Record which conditions the proposal was planned under, so a simulated preset is never mistaken for live data
         audit_ledger.record_entry(
+            region=domain_service.get_region_for_facility(rec.donor_facility_id),
             event_type="APPROVAL_PLANNING_CONTEXT",
             details={"recommendation_id": rec.id, "consignment_id": consignment.id, "scenario": sc,
                      "simulated": sc != "live", "aqi": planning_env.aqi, "temperature_c": planning_env.temperature_c},
@@ -802,12 +824,22 @@ async def get_all_consignments(region: Optional[str] = None):
     return list(consignments.values())
 
 @app.get("/api/audit-log")
-async def get_audit_log(limit: int = 15):
-    return audit_ledger.get_recent_entries(limit=limit)
+async def get_audit_log(limit: int = 15, region: Optional[str] = None):
+    reg = resolve_region(region)
+    token = sandbox_mod.current_region.set(reg)
+    try:
+        return audit_ledger.get_recent_entries(limit=limit)
+    finally:
+        sandbox_mod.current_region.reset(token)
 
 @app.get("/api/audit-log/verify")
-async def verify_audit_ledger():
-    return audit_ledger.verify_chain_integrity()
+async def verify_audit_ledger(region: Optional[str] = None):
+    reg = resolve_region(region)
+    token = sandbox_mod.current_region.set(reg)
+    try:
+        return audit_ledger.verify_chain_integrity()
+    finally:
+        sandbox_mod.current_region.reset(token)
 
 @app.post("/api/agents/run-resilience-pipeline")
 async def run_resilience_pipeline(http_request: Request, payload: Dict[str, Any] = Body(default={}), scenario: Optional[str] = None):
@@ -832,6 +864,7 @@ async def run_resilience_pipeline(http_request: Request, payload: Dict[str, Any]
     if sc is None:
         recompute_recommendations(reg)
     audit_ledger.record_entry(
+        region=reg,
         event_type="MULTI_AGENT_PIPELINE_RUN",
         details={
             "target_facility": target_phc,
@@ -862,6 +895,7 @@ async def cmo_chat(http_request: Request, payload: Dict[str, Any] = Body(...), s
         logger.exception("CMO strategic insight failed")
         raise HTTPException(status_code=500, detail="The strategic insight agent failed on this question. Please try again or rephrase.")
     audit_ledger.record_entry(
+        region=reg,
         event_type="CMO_STRATEGIC_QUERY",
         details={"question": question, "query_type": response.get("query_type"), "region": reg, "answered_by": response.get("answered_by")},
         approved_by="DR_SAXENA_CMO"
@@ -903,6 +937,7 @@ async def verify_shelf_photo(http_request: Request, payload: Dict[str, Any] = Bo
         status = "DISCREPANCY_FLAGGED" if flagged else ("PARTIAL_COUNT" if partial else "VERIFIED_MATCH")
 
     audit_ledger.record_entry(
+        region=region,
         event_type="SHELF_PHOTO_VISION_VERIFICATION",
         details={
             "facility_id": facility_id,

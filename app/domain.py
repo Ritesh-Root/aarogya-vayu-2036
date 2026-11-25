@@ -391,6 +391,7 @@ class InventoryDomainService:
         now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
         audit_entry = self.audit_ledger.record_entry(
+            region=reg,
             event_type="STOCK_TRANSFER_RESERVED",
             details={
                 "consignment_id": consignment_id,
@@ -478,6 +479,7 @@ class InventoryDomainService:
         c_data["condition_notes"] = f"Cancelled by {req.operator_name}: {req.reason}"
 
         audit_entry = self.audit_ledger.record_entry(
+            region=reg,
             event_type="STOCK_TRANSFER_CANCELLED",
             details={
                 "consignment_id": req.consignment_id,
@@ -557,6 +559,7 @@ class InventoryDomainService:
         c_data["condition_notes"] = req.courier_notes
 
         audit_entry = self.audit_ledger.record_entry(
+            region=reg,
             event_type="STOCK_TRANSFER_DISPATCHED",
             details={
                 "consignment_id": req.consignment_id,
@@ -680,6 +683,7 @@ class InventoryDomainService:
         c_data["condition_notes"] = req.discrepancy_notes
 
         audit_entry = self.audit_ledger.record_entry(
+            region=reg,
             event_type="STOCK_TRANSFER_RECEIVED",
             details={
                 "consignment_id": req.consignment_id,
@@ -873,6 +877,7 @@ class InventoryDomainService:
                 c_data["status"] = "CANCELLED"
                 c_data["condition_notes"] = f"Cancelled by {req.supervisor_name} ({req.supervisor_role}) during reconciliation resolution: {req.resolution_notes}"
                 cancel_audit = self.audit_ledger.record_entry(
+                    region=reg,
                     event_type="STOCK_TRANSFER_CANCELLED",
                     details={
                         "consignment_id": cid,
@@ -922,6 +927,7 @@ class InventoryDomainService:
 
         # Mint audit entry
         audit_entry = self.audit_ledger.record_entry(
+            region=reg,
             event_type="STOCK_RECONCILIATION_RESOLVED",
             details={
                 "facility_id": req.facility_id,
